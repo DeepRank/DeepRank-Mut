@@ -45,7 +45,7 @@ DeepRank is available in stable releases on [PyPI](https://pypi.org/project/deep
 
 You can also install the under development source code from the branch `development`
 
-- Clone the repository `git clone --branch development https://github.com/DeepRank/deeprank.git`
+- Clone the repository `git clone --branch development https://github.com/DeepRank/DeepRank_VariantEffect-Pred.git`
 - Go there             `cd deeprank`
 - Install the package  `pip install -e ./`
 
