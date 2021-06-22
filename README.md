@@ -1,5 +1,4 @@
 # DeepRank
-# [![PyPI](https://img.shields.io/pypi/v/deeprank)](https://pypi.org/project/deeprank/)
 [![Documentation Status](https://readthedocs.org/projects/deeprank/badge/?version=latest)](http://deeprank.readthedocs.io/?badge=latest)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3735042.svg)](https://doi.org/10.5281/zenodo.3735042)
 ![Build](https://github.com/DeepRank/deeprank/workflows/Build/badge.svg)
