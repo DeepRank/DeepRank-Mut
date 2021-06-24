@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     pathogenic_variants = filter(lambda v: v.variant_class == VariantClass.PATHOGENIC, variants)
 
-    _log.debug("got {} variants, of which {} pathogenic")
+    _log.debug("got {} variants, of which {} pathogenic".format(len(variants), len(pathogenic_variants)))
 
     try:
         preprocess(variants, args.out_path)
