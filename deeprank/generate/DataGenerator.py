@@ -202,10 +202,10 @@ class DataGenerator(object):
         for variant in variant_tqdm:
 
             variant_tqdm.set_postfix(variant=os.path.basename(variant.pdb_path))
-            self.logger.info(f'\nProcessing variant: {variant.pdb_path}')
+            variant_name = hdf5data.get_variant_group_name(variant)
+            self.logger.info(f'\nProcessing variant: {variant_name}')
 
             # names of the variant
-            variant_name = hdf5data.get_variant_group_name(variant)
             variant_aug_name_list = []
 
             try:
