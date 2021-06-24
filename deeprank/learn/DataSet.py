@@ -291,11 +291,12 @@ class DataSet():
             if self.transform:
                 feature = self.convert2d(feature, self.proj2D)
 
-            return {'mol': [fname, mol], 'feature': feature, 'target': target}
+            result = {'mol': [fname, mol], 'feature': feature, 'target': target}
+            return result
 
         except:
+            logger.error('Unable to load molecule %s from %s' % (mol, fname))
             raise
-            print('Unable to load molecule %s from %s' % (mol, fname))
 
     @staticmethod
     def check_hdf5_files(database):
@@ -792,8 +793,7 @@ class DataSet():
         """
 
         for ic in range(self.data_shape[0]):
-            feature[ic] = (feature[ic] - self.feature_mean[ic]
-                           ) / self.feature_std[ic]
+            feature[ic] = (feature[ic] - self.feature_mean[ic]) / self.feature_std[ic]
         return feature
 
     def _clip_feature(self, feature):
@@ -903,6 +903,7 @@ class DataSet():
                                      feat_type].keys()
                         ))
                     )
+                    continue
 
                 # check its sparse attribute
                 # if true get a FLAN
