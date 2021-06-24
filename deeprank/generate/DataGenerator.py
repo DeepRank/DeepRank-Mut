@@ -167,7 +167,7 @@ class DataGenerator(object):
         if size > 1:
             if rank == 0:
                 variants_divided = [self.variants[i::size] for i in range(size)]
-                self.local_variants = variant_divided[0]
+                self.local_variants = variants_divided[0]
                 # send to other procs
                 for iP in range(1, size):
                     self.mpi_comm.send(variants_divided[iP], dest=iP, tag=11)
