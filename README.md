@@ -1,5 +1,4 @@
 # DeepRank
-[![PyPI](https://img.shields.io/pypi/v/deeprank)](https://pypi.org/project/deeprank/)
 [![Documentation Status](https://readthedocs.org/projects/deeprank/badge/?version=latest)](http://deeprank.readthedocs.io/?badge=latest)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3735042.svg)](https://doi.org/10.5281/zenodo.3735042)
 ![Build](https://github.com/DeepRank/deeprank/workflows/Build/badge.svg)
@@ -17,7 +16,7 @@
 - [Issues & Contributing](#Issues-and-Contributing)
 
 ## Overview
-![alt-text](./pics/deeprank.png)
+![alt-text](./pics/deeprankv.2.0.png)
 
 DeepRank is a general, configurable deep learning framework for predicting pathogenicity of missense variants using 3D convolutional neural networks (CNNs).
 
@@ -45,7 +44,7 @@ DeepRank is available in stable releases on [PyPI](https://pypi.org/project/deep
 
 You can also install the under development source code from the branch `development`
 
-- Clone the repository `git clone --branch development https://github.com/DeepRank/deeprank.git`
+- Clone the repository `git clone --branch development https://github.com/DeepRank/DeepRank_VariantEffect-Pred.git`
 - Go there             `cd deeprank`
 - Install the package  `pip install -e ./`
 
