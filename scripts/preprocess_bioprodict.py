@@ -7,6 +7,7 @@ from threading import Thread
 from math import isnan
 from glob import glob
 import traceback
+from time import time
 
 import numpy
 import pandas
@@ -18,10 +19,13 @@ from pdb2sql import pdb2sql
 import gzip
 from pdbecif.mmcif_io import CifFileReader
 
-from deeprank.operate import hdf5data
+# Assure that python can find the deeprank files:
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from deeprank.generate import DataGenerator
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
+
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -92,8 +96,10 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         # Convert class to deeprank format (0: benign, 1: pathogenic):
         if variant_class == 0.0:
             variant_class = VariantClass.BENIGN
-        else:
+        elif variant_class == 1.0:
             variant_class = VariantClass.PATHOGENIC
+        else:
+            raise ValueError("Unknown class: {}".format(variant_class))
 
         # Iterate over HDF5 table variants, associated with the variant from the parq file (mapped to the ENST code):
         for variant_index, variant_row in variant_table.where(variant_table.ENST == enst_ac).dropna().iterrows():
@@ -150,14 +156,37 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
     return list(objects)
 
 
+def get_subset(variants):
+    benign = []
+    pathogenic = []
+    for variant in variants:
+        if variant.variant_class == VariantClass.PATHOGENIC:
+            pathogenic.append(variant)
+        elif variant.variant_class == VariantClass.BENIGN:
+            benign.append(variant)
+
+    _log.debug("variants: got {} benign and {} pathogenic".format(len(benign), len(pathogenic)))
+
+    count = min(len(benign), len(pathogenic))
+
+    numpy.random.seed(int(time()))
+
+    numpy.random.shuffle(benign)
+    numpy.random.shuffle(pathogenic)
+
+    variants = benign[:count] + pathogenic[:count]
+    numpy.random.shuffle(variants)
+
+    _log.debug("variants: taking a subset of {}".format(len(variants)))
+    return variants
+
+
 if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     variants = get_variant_data(args.variant_path, args.map_path, args.pdb_root, args.pssm_root)
 
-    pathogenic_variants = filter(lambda v: v.variant_class == VariantClass.PATHOGENIC, variants)
-
-    _log.debug("got {} variants, of which {} pathogenic".format(len(variants), len(pathogenic_variants)))
+    variants = get_subset(variants)
 
     try:
         preprocess(variants, args.out_path)
