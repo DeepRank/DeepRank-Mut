@@ -12,6 +12,7 @@ from deeprank.parse.param import ParamParser
 from deeprank.parse.top import TopParser
 from deeprank.parse.patch import PatchParser
 from deeprank.models.patch import PatchActionType
+from deeprank.models.param import VanderwaalsParam
 
 _log = logging.getLogger(__name__)
 
