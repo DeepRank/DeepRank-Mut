@@ -32,9 +32,6 @@ arg_parser.add_argument("pssm_root", help="the path to the pssm root directory")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 
 
-args = arg_parser.parse_args()
-
-
 logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.DEBUG)
 _log = logging.getLogger(__name__)
 
@@ -154,6 +151,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
 
 
 if __name__ == "__main__":
+    args = arg_parser.parse_args()
 
     variants = get_variant_data(args.variant_path, args.map_path, args.pdb_root, args.pssm_root)
 
