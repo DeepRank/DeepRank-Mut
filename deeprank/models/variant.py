@@ -86,6 +86,9 @@ class PdbVariantSelection:
 
         return hash(s)
 
+    def __repr__(self):
+        return "{}:{}:{}->{}".format(self._pdb_path, self._chain_id, self._residue_number, self._amino_acid)
+
     @property
     def variant_class(self):
         return self._variant_class
