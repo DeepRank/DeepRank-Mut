@@ -382,9 +382,8 @@ class GridTools(object):
                         if atom.element == element_type:
                             atdens += self.densgrid(atom.position, vdw_rad)
 
-                # create the final grid: A and B
                 if mode == 'ind':
-                    key = '%s_%s' % (element_type, chain_id)
+                    key = element_type
                     self.atdens[key] = atdens
                 else:
                     raise ValueError('Unsupported atomic density mode {}'.format(mode))
