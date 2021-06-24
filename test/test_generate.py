@@ -75,7 +75,7 @@ def test_generate():
 
                 # Check that the atomic densities are present in the HDF5 file:
                 for element_name in atomic_densities:
-                    density_path = "%s/mapped_features/AtomicDensities_ind/%s_%s" % (variant_name, element_name, variant.chain_id)
+                    density_path = "%s/mapped_features/AtomicDensities_ind/%s" % (variant_name, element_name)
                     ok_(len(f5[density_path]) > 0)
 
                 # Check that the target values have been placed in the HDF5 file:
