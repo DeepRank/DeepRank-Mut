@@ -95,7 +95,7 @@ def test_feature_mapping():
 
             carbon_density_grid = _get_feature_grid(f5,
                                                     "%s/mapped_features/AtomicDensities_ind" % pdb_name,
-                                                    "C_%s" % chain_id,
+                                                    "C",
                                                     points_count)
 
             # Check that the gaussian is high at the carbon atom positions:
