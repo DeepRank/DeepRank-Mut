@@ -46,7 +46,10 @@ class PdbVariantSelection:
         if self._pssm_paths_by_chain is None:
             raise ValueError("pssm paths are not set in this variant selection")
 
-        return self._pssm_paths_by_chain[chain_id]
+        if chain_id in self._pssm_paths_by_chain:
+            return self._pssm_paths_by_chain[chain_id]
+        else:
+            raise ValueError("No PSSM for chain {}, candidates are {}".format(chain_id, self._pssm_paths_by_chain.keys()))
 
     @property
     def chain_id(self):
@@ -59,9 +62,6 @@ class PdbVariantSelection:
     @property
     def amino_acid(self):
         return self._amino_acid
-
-    def get_pssm_path(self, chain_id):
-        return self._pssm_paths_by_chain[chain_id]
 
     def __eq__(self, other):
         return self._pdb_path == other._pdb_path and \
