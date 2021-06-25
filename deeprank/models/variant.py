@@ -49,7 +49,7 @@ class PdbVariantSelection:
         if chain_id in self._pssm_paths_by_chain:
             return self._pssm_paths_by_chain[chain_id]
         else:
-            raise ValueError("No PSSM for chain {}, candidates are {}".format(chain_id, self._pssm_paths_by_chain.keys()))
+            raise ValueError("No PSSM for chain {}, candidates are {}".format(chain_id, ",".join(self._pssm_paths_by_chain.keys())))
 
     @property
     def chain_id(self):
