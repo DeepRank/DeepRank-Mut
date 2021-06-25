@@ -66,17 +66,11 @@ def test_generate():
                         eq_(coords[i + 1] - coords[i], resolution)
 
                 # Check for mapped features in the HDF5 file:
-                feature_path = "%s/mapped_features/Feature_ind" % variant_name
-                feature_keys = f5[feature_path].keys()
-                for feature_name in feature_names:
-                    feature_name = feature_name.split('.')[-1]
-                    feature_key = [key for key in feature_keys if feature_name in key][0]
-                    ok_(len(f5["%s/%s" % (feature_path, feature_key)]['value']) > 0)
-
-                # Check that the atomic densities are present in the HDF5 file:
-                for element_name in atomic_densities:
-                    density_path = "%s/mapped_features/AtomicDensities_ind/%s" % (variant_name, element_name)
-                    ok_(len(f5[density_path]) > 0)
+                for map_name in ["Feature_ind", "AtomicDensities_ind"]:
+                    features = hdf5data.load_grid_data(f5[variant_name], "Feature_ind")
+                    ok_(len(features) > 0)
+                    for feature_name, feature_data in features.items():
+                        ok_(feature_data.shape == (number_of_points, number_of_points, number_of_points))
 
                 # Check that the target values have been placed in the HDF5 file:
                 for target_name in target_names:
