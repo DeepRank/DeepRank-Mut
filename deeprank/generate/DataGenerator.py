@@ -1454,7 +1454,7 @@ class DataGenerator(object):
                 feat_module = importlib.import_module(feat, package=None)
                 feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
             except Exception as ex:
-                logger.exception(ex)
+                logger.exception("{}: {}".format(feat, traceback.format_exc()))
                 error_flag = True
 
         return error_flag
