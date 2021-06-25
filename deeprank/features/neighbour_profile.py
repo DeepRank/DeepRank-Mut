@@ -77,7 +77,7 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     residue_id = Residue(variant.residue_number, wild_type_code, variant.chain_id)
     wild_type_probability = pssm.get_probability(residue_id, wild_type_code)
     mutant_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.amino_acid])
-    xyz_key = tuple([chain_numbers[variant.chain_id]] + c_alpha_position)
+    xyz_key = tuple(c_alpha_position)
 
     feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wild_type_probability]}
     feature_object.feature_data_xyz[MUT_FEATURE_NAME] = {xyz_key: [mutant_probability]}

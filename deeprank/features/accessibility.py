@@ -78,7 +78,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
 
             _log.debug("  is contact atom with area = {} square Angstrom".format(area))
 
-            xyz_key = tuple([chain_numbers[chain_id]] + position)
+            xyz_key = tuple(position)
             feature_obj.feature_data_xyz[FEATURE_NAME][xyz_key] = [area]
 
     # Store the features in the hdf5 file:

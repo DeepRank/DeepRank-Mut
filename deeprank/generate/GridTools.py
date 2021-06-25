@@ -428,33 +428,29 @@ class GridTools(object):
     ################################################################
 
     @staticmethod
-    def _get_feature_row_chain_position_values(row):
+    def _get_feature_row_position_values(row):
         """ Extract metadata from an input xyz feature row.
-            The row format is: chain_number x y z [values]
+            The row format is: x y z [values]
 
             Returns (triple): chain number(float), position(float list of length 3) and values(float list)
         """
 
         position_dimension = 3
 
-        chain_number = row[0]
-        position = row[1: 1 + position_dimension]
-        values = row[1 + position_dimension:]
+        position = row[:position_dimension]
+        values = row[position_dimension:]
 
-        return chain_number, position, values
+        return position, values
 
     @staticmethod
-    def _get_indicative_feature_key(feature_type_name, chain_number=None, value_number=None):
+    def _get_indicative_feature_key(feature_type_name, value_number=None):
         """ Creates a key to be used within the grid feature group.
-            The format is: [type name]_[chain number as int]_[value number]
+            The format is: [type name]_[value number]
 
             Returns (str): the key
         """
 
         feature_name = feature_type_name
-        if chain_number is not None:
-            feature_name += "_chain%03d" % chain_number
-
         if value_number is not None:
             feature_name += "_value%03d" % value_number
 
@@ -504,9 +500,7 @@ class GridTools(object):
         # loop over all the features required
         for feature_name in featlist:
 
-            logif('-- Map %s on %dx%dx%d grid '
-                  % (feature_name, self.npts[0],
-                     self.npts[1], self.npts[2]), self.time)
+            logger.debug('-- Map %s on %dx%dx%d grid ' % (feature_name, self.npts[0], self.npts[1], self.npts[2]))
 
             # read the data
             featgrp = self.variant_group['features']
@@ -519,8 +513,13 @@ class GridTools(object):
             # and test it on the first line of the data
             # get the data on the first line
             position_dimension = 3
+
+            logger.debug("data shape {}".format(data.shape))
+
             if data.shape[0] != 0:
-                chain_numbers, position, data_test = GridTools._get_feature_row_chain_position_values(data[0])
+                position, data_test = GridTools._get_feature_row_position_values(data[0])
+
+                logger.debug("position={}, data={}".format(position, data_test))
 
                 # define the length of the output
                 if transform is None:
@@ -533,29 +532,19 @@ class GridTools(object):
             else:
                 nFeat = 1
 
-            # Initialize the dict that will eventually hold all the data:
-            present_chain_numbers = {GridTools._get_feature_row_chain_position_values(row)[0] for row in data}
+            logger.debug("placing {} features in {}".format(nFeat, feature_name))
 
+            # Initialize the dict that will eventually hold all the data:
             if nFeat == 1:
 
-                if self.feature_mode == 'ind':
-                    for chain_number in present_chain_numbers:
-                        fname = GridTools._get_indicative_feature_key(feature_name, chain_number)
-                        dict_data[fname] = np.zeros(self.npts)
-                else:
-                    fname = GridTools._get_indicative_feature_key(feature_name)
-                    dict_data[fname] = np.zeros(self.npts)
+                fname = GridTools._get_indicative_feature_key(feature_name)
+                dict_data[fname] = np.zeros(self.npts)
 
             else: # do we need that ?!
 
                 for iF in range(nFeat):
-                    if self.feature_mode == 'ind':
-                        for chain_number in present_chain_numbers:
-                            fname = GridTools._get_indicative_feature_key(feature_name, chain_number, iF)
-                            dict_data[fname] = np.zeros(self.npts)
-                    else:
-                        fname = GridTools._get_indicative_feature_key(feature_name, value_number=iF)
-                        dict_data[fname] = np.zeros(self.npts)
+                    fname = GridTools._get_indicative_feature_key(feature_name, value_number=iF)
+                    dict_data[fname] = np.zeros(self.npts)
 
             # skip empty features
             if data.shape[0] == 0:
@@ -574,7 +563,7 @@ class GridTools(object):
                 t0 = time()
 
                 # parse the row
-                chain_number, pos, feat_values = GridTools._get_feature_row_chain_position_values(row)
+                pos, feat_values = GridTools._get_feature_row_position_values(row)
 
                 # postporcess the data
                 if callable(transform):
@@ -592,12 +581,12 @@ class GridTools(object):
                 # map this feature(s) on the grid(s)
                 if not self.cuda:
                     if nFeat == 1:
-                        fname = GridTools._get_indicative_feature_key(feature_name, chain_number)
+                        fname = GridTools._get_indicative_feature_key(feature_name)
 
                         dict_data[fname] += coeff * self.featgrid(pos, feat_values)
                     else:
                         for iF in range(nFeat):
-                            fname = GridTools._get_indicative_feature_key(feature_name, chain_number, iF)
+                            fname = GridTools._get_indicative_feature_key(feature_name, iF)
 
                             dict_data[fname] += coeff * self.featgrid(pos, feat_values[iF])
 
@@ -618,14 +607,14 @@ class GridTools(object):
                 tgrid += time() - t0
 
             if self.cuda:  # pragma: no cover
-                for chain_number in chain_numbers:
-                    fname = GridTools._get_indicative_feature_key(feature_name, chain_number)
+                fname = GridTools._get_indicative_feature_key(feature_name)
 
-                    dict_data[fname] = grid_gpu.get()
-                    driver.Context.synchronize()
+                dict_data[fname] = grid_gpu.get()
+                driver.Context.synchronize()
 
-            logif('     Process time %f ms' % (tprocess * 1000), self.time)
-            logif('     Grid    time %f ms' % (tgrid * 1000), self.time)
+            logger.debug('     Process time %f ms' % (tprocess * 1000))
+            logger.debug('     Grid    time %f ms' % (tgrid * 1000))
+            logger.debug("     Returning data {}" % dict_data)
 
         return dict_data
 

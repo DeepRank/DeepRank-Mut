@@ -2,13 +2,20 @@ import os
 import pkg_resources
 from tempfile import mkdtemp
 import shutil
+import logging
 
 import numpy
 import h5py
 from nose.tools import ok_, eq_
+import pdb2sql
 
+from deeprank.operate import hdf5data
 from deeprank.generate.GridTools import GridTools
 from deeprank.models.variant import PdbVariantSelection
+from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
+
+
+_log = logging.getLogger(__name__)
 
 
 def _get_feature_grid(hdf5, feature_group_name, feature_name, points_count):
@@ -32,6 +39,66 @@ def gt_(value1, value2):
 
 def lt_(value1, value2):
     assert value1 < value2, "{} >= {}".format(value1, value2)
+
+
+def test_atomic_contacts_mapping():
+    """ In this test, we load an entire pdb entry and generate atomic contacts for it.
+        We also mapping these features to the grid and check that this happens correctly.
+    """
+
+    pdb_path = "test/101M.pdb"
+    variant = PdbVariantSelection(pdb_path, 'A', 138, 'Y')
+    variant_name = "101M-F138Y"
+
+    feature_types = ["vdwaals", "coulomb", "charge"]
+
+    tmp_dir = mkdtemp()
+    try:
+        tmp_path = os.path.join(tmp_dir, "test.hdf5")
+        with h5py.File(tmp_path, 'w') as f5:
+
+            variant_group = f5.require_group(variant_name)
+            variant_group.attrs['type'] = 'variant'
+            hdf5data.store_variant(variant_group, variant)
+
+            feature_group = variant_group.require_group('features')
+            raw_feature_group = variant_group.require_group('features_raw')
+
+            compute_contact_feature(pdb_path, feature_group, raw_feature_group, variant)
+
+            for feature_type in feature_types:
+                ok_(feature_type in feature_group)
+
+            sqldb = pdb2sql.interface(variant.pdb_path)
+            try:
+                grid_center = sqldb.get("x,y,z", chainID=variant.chain_id,
+                                        resSeq=variant.residue_number, name="CA")[0]
+            finally:
+                sqldb._close()
+
+            variant_group.require_group('grid_points')
+            variant_group['grid_points'].create_dataset('center', data=grid_center)
+
+            points_count = 30
+
+            # Build the grid and map the features.
+            gridtools = GridTools(variant_group, variant,
+                                  number_of_points=points_count, resolution=1.0,
+                                  atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+                                  feature=feature_types,
+                                  contact_distance=8.5,
+                                  try_sparse=False)
+
+            for feature_type in feature_types:
+                feature_grid = _get_feature_grid(f5,
+                                                 "%s/mapped_features/Feature_ind" % variant_name,
+                                                 feature_type,
+                                                 points_count)
+
+                # Check that the feature is nonzero, at least somewhere on the grid
+                ok_(len(numpy.nonzero(feature_grid)) > 0)
+    finally:
+        shutil.rmtree(tmp_dir)
 
 
 def test_feature_mapping():
@@ -62,17 +129,18 @@ def test_feature_mapping():
                f.write(line) 
 
         variant = PdbVariantSelection(pdb_path, 'A', 1, 'V')
+        variant_name = "1XXX-X1V"
 
         tmp_path = os.path.join(tmp_dir, "test.hdf5")
 
         with h5py.File(tmp_path, 'w') as f5:
 
             # Fill the HDF5 with data, before we give it to the grid.
-            mol_group = f5.require_group(pdb_name)
-            mol_group.attrs['type'] = 'molecule'
-            mol_group.attrs['pdb_path'] = pdb_path
+            variant_group = f5.require_group(variant_name)
+            variant_group.attrs['type'] = 'variant'
+            hdf5data.store_variant(variant_group, variant)
 
-            feature_group = mol_group.require_group('features')
+            feature_group = variant_group.require_group('features')
 
             feature_type_name = "testfeature"
             chain_id = "A"
@@ -80,13 +148,13 @@ def test_feature_mapping():
             position = [10.0, 10.0, 10.0]  # this should fit inside the grid
             value = 0.923
 
-            data = numpy.array([[chain_number] + position + [value]])
+            data = numpy.array([position + [value]])
             feature_group.create_dataset(feature_type_name, data=data)
 
             points_count = 30
 
             # Build the grid and map the features.
-            gridtools = GridTools(mol_group, variant,
+            gridtools = GridTools(variant_group, variant,
                                   number_of_points=points_count, resolution=1.0,
                                   atomic_densities={'C': 1.7},  # only collect density data on carbon
                                   feature=[feature_type_name],
@@ -94,7 +162,7 @@ def test_feature_mapping():
                                   try_sparse=False)
 
             carbon_density_grid = _get_feature_grid(f5,
-                                                    "%s/mapped_features/AtomicDensities_ind" % pdb_name,
+                                                    "%s/mapped_features/AtomicDensities_ind" % variant_name,
                                                     "C",
                                                     points_count)
 
@@ -106,8 +174,8 @@ def test_feature_mapping():
             lt_(carbon_density_grid[24][24][24], 0.001)
 
             feature_grid = _get_feature_grid(f5,
-                                             "%s/mapped_features/Feature_ind" % pdb_name,
-                                             "%s_chain000" % feature_type_name,
+                                             "%s/mapped_features/Feature_ind" % variant_name,
+                                             feature_type_name,
                                              points_count)
 
             # Check that the feature is high at the set position:
