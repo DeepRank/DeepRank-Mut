@@ -17,7 +17,7 @@ arg_parser = ArgumentParser(description="learn and run a neural network")
 arg_parser.add_argument("dataset", help="input dataset hdf5 file")
 
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(filename="learn-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
 
 
 if __name__ == "__main__":
