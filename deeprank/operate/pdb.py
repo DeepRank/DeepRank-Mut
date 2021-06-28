@@ -73,7 +73,8 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, max_intera
     residue_atoms = [atom for atom in atoms if atom.chain_id == chain_id and
                                                atom.residue.number == residue_number]
     if len(residue_atoms) == 0:
-        raise ValueError("No atoms found in pdb chain {} with residue number {}".format(chain_id, residue_number))
+        raise ValueError("{}: no atoms found in pdb chain {} with residue number {}"
+                         .format(pdb2sql.pdbfile, chain_id, residue_number))
 
     # Iterate over all the atoms in the pdb, to find neighbours.
     contact_atom_pairs = set([])
