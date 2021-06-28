@@ -2,12 +2,11 @@ import logging
 
 from pdb2sql import pdb2sql
 import freesasa
+import numpy
 
+from deeprank.config import logger
 from deeprank.features import FeatureClass
 from deeprank.operate.pdb import get_residue_contact_atom_pairs
-
-
-_log = logging.getLogger(__name__)
 
 
 def get_atoms_of_iterest(variant, distance_cutoff):
@@ -44,7 +43,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
         atoms_keys.add(atom_key)
         chain_ids.add(atom.chain_id)
 
-        _log.debug("contact atom: {}".format(atom_key))
+        logger.debug("contact atom: {}".format(atom_key))
 
     # Get structure and area data from SASA:
     structure = freesasa.Structure(variant.pdb_path)
@@ -68,7 +67,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
                     int(structure.residueNumber(atom_index)),
                     structure.atomName(atom_index).strip())
 
-        _log.debug("atom {}: {}".format(atom_index, atom_key))
+        logger.debug("atom {}: {}".format(atom_index, atom_key))
 
         # Check that the atom is one of the selected atoms:
         if atom_key in atoms_keys:
@@ -76,10 +75,13 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
             # Store the accessibility as a feature:
             area = result.atomArea(atom_index)
 
-            _log.debug("  is contact atom with area = {} square Angstrom".format(area))
+            logger.debug("  is contact atom with area = {} square Angstrom".format(area))
 
             xyz_key = tuple(position)
             feature_obj.feature_data_xyz[FEATURE_NAME][xyz_key] = [area]
 
     # Store the features in the hdf5 file:
     feature_obj.export_dataxyz_hdf5(featgrp)
+
+    data = numpy.array(featgrp.get(FEATURE_NAME))
+    logger.info("preprocessed {} features for {}:\n{}".format(FEATURE_NAME, variant, data))

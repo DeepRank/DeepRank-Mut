@@ -5,6 +5,7 @@ import os
 
 import numpy
 
+from deeprank.config import logger
 from deeprank.models.pair import Pair
 from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_distance
 from deeprank.features.FeatureClass import FeatureClass
@@ -13,8 +14,6 @@ from deeprank.parse.top import TopParser
 from deeprank.parse.patch import PatchParser
 from deeprank.models.patch import PatchActionType
 from deeprank.models.param import VanderwaalsParam
-
-_log = logging.getLogger(__name__)
 
 
 class ResidueSynonymCriteria:
@@ -403,8 +402,8 @@ class AtomicContacts(FeatureClass):
             return self._residue_charges[(residue_name, atom_name)]
 
         else:
-            _log.warn("Atom type {} not found for {}/{}, set charge to 0.0"
-                      .format(atom_name, residue_name, alternative_residue_name))
+            logger.warn("Atom type {} not found for {}/{}, set charge to 0.0"
+                        .format(atom_name, residue_name, alternative_residue_name))
 
             return 0.0
 
@@ -531,3 +530,7 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
         # export in the hdf5 file
         feature_object.export_dataxyz_hdf5(feature_group)
         feature_object.export_data_hdf5(raw_feature_group)
+
+        for key in feature_object.feature_data_xyz:
+            data = numpy.array(feature_group.get(key))
+            logger.info("preprocessed {} features for {}:\n{}".format(key, variant, data))

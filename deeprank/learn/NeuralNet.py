@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import logging
 
 import h5py
 import matplotlib
@@ -405,7 +406,7 @@ class NeuralNet():
 
         # do test
         self.data = {}
-        _, self.data['test'] = self._epoch(loader, train_model=False)
+        _, self.data['test'] = self._epoch("test", loader, train_model=False)
         if self.task == 'reg':
             self._plot_scatter_reg(os.path.join(self.outdir, 'prediction.png'))
         else:
@@ -631,8 +632,8 @@ class NeuralNet():
 
             # train the model
             logger.info(f"\n\t=> train the model\n")
-            train_loss, self.data['train'] = self._epoch(
-                train_loader, train_model=True)
+            train_loss, self.data['train'] = self._epoch("train-epoch-%d" % epoch,
+                                                         train_loader, train_model=True)
             self.losses['train'].append(train_loss)
             if self.save_classmetrics:
                 for i in self.metricnames:
@@ -641,8 +642,8 @@ class NeuralNet():
             # validate the model
             if _valid_:
                 logger.info(f"\n\t=> validate the model\n")
-                valid_loss, self.data['valid'] = self._epoch(
-                    valid_loader, train_model=False)
+                valid_loss, self.data['valid'] = self._epoch("valid-epoch-%d" % epoch,
+                                                             valid_loader, train_model=False)
                 self.losses['valid'].append(valid_loss)
                 if self.save_classmetrics:
                     for i in self.metricnames:
@@ -652,8 +653,8 @@ class NeuralNet():
             # test the model
             if _test_:
                 logger.info(f"\n\t=> test the model\n")
-                test_loss, self.data['test'] = self._epoch(
-                    test_loader, train_model=False)
+                test_loss, self.data['test'] = self._epoch("test-epoch-%d" % epoch,
+                                                           test_loader, train_model=False)
                 self.losses['test'].append(test_loss)
                 if self.save_classmetrics:
                     for i in self.metricnames:
@@ -720,7 +721,21 @@ class NeuralNet():
         return torch.cat([param.data.view(-1)
                           for param in self.net.parameters()], 0)
 
-    def _epoch(self, data_loader, train_model):
+
+    @staticmethod
+    def _get_epoch_logger(epoch_name):
+        log_path = "deeprank-%d_%s.log" % (os.getpid(), epoch_name)
+
+        logger = logging.getLogger(epoch_name)
+
+        handler = logging.FileHandler(log_path)
+        logger.addHandler(handler)
+
+        logger.setLevel(logging.DEBUG)
+
+        return logger
+
+    def _epoch(self, epoch_name, data_loader, train_model):
         """Perform one single epoch iteration over a data loader.
 
         Args:
@@ -731,6 +746,9 @@ class NeuralNet():
             float: loss of the model
             dict:  data of the epoch
         """
+
+        # intermediate logger
+        epoch_logger = NeuralNet._get_epoch_logger(epoch_name)
 
         # variables of the epoch
         running_loss = 0
@@ -750,6 +768,8 @@ class NeuralNet():
 
         mini_batch = 0
 
+        epoch_logger.info("running epoch on {} data entries".format(len(data_loader)))
+
         for d in data_loader:
 
             mini_batch = mini_batch + 1
@@ -761,6 +781,8 @@ class NeuralNet():
             targets = d['target']
             mol = d['mol']
 
+            epoch_logger.debug("data entry {}:\n  has input: {}\n  has target: {}".format(mol, inputs, targets))
+
             # transform the data
             inputs, targets = self._get_variables(inputs, targets)
 
@@ -770,12 +792,17 @@ class NeuralNet():
             # forward
             outputs = self.net(inputs)
 
+            epoch_logger.debug("data entry {}:\n  has output:{}".format(mol, outputs))
+
             # class complains about the shape ...
             if self.task == 'class':
                 targets = targets.view(-1)
 
             # evaluate loss
             loss = self.criterion(outputs, targets)
+
+            epoch_logger.debug("data entry {}:\n  has loss:{}".format(mol, loss))
+
             running_loss += loss.data.item()  # pytorch1 compatible
             n += len(inputs)
 
@@ -814,6 +841,8 @@ class NeuralNet():
             running_loss /= n
         else:
             warnings.warn(f'Empty input in data_loader {data_loader}.')
+
+        epoch_logger.info("running loss: {}".format(running_loss))
 
         return running_loss, data
 

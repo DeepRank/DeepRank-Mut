@@ -860,6 +860,8 @@ class DataSet():
         if variant_name is None:
             variant_name = list(fh5.keys())[0]
 
+        logger.info("loading variant {} from {}".format(variant_name, fname))
+
         # get the variant
         variant_data = fh5.get(variant_name)
 
@@ -873,10 +875,11 @@ class DataSet():
         feature = []
         for feat_type, feat_names in self.select_feature.items():
 
+            logger.debug("selected feature: {} {}".format(feat_type, feat_names))
+
             # see if the feature exists
             if 'mapped_features/' + feat_type in variant_data.keys():
-                feat_dict = variant_data.get(
-                    'mapped_features/' + feat_type)
+                feat_dict = variant_data.get('mapped_features/' + feat_type)
             else:
                 logger.error(
                     f'Feature type {feat_type} not found in file {fname} '
@@ -919,8 +922,12 @@ class DataSet():
                 # append to the list of features
                 feature.append(mat)
 
+                logger.debug("converted feature {} {} to a {} matrix".format(feat_type, name, "x".join([str(n) for n in mat.shape])))
+
         # get the target value
         target = variant_data.get('targets/' + self.select_target)[()]
+
+        logger.debug("{} has target {}".format(variant_name, target))
 
         # close
         fh5.close()

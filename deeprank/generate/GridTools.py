@@ -725,6 +725,8 @@ class GridTools(object):
         hdf5data.store_grid_points(self.variant_group, self.x, self.y, self.z)
         hdf5data.store_grid_center(self.variant_group, self.center_contact)
 
+        logger.info("store a grid for {}, centered at {}".format(str(self.variant), self.center_contact))
+
     # save the data in the hdf5 file
 
     def hdf5_grid_data(self, dict_data, data_name):
@@ -736,5 +738,9 @@ class GridTools(object):
         """
 
         hdf5data.store_grid_data(self.variant_group, data_name, dict_data, try_sparse=self.try_sparse)
+
+        for key in dict_data:
+            data = numpy.array(dict_data[key])
+            logger.info("stored grid data {} {} for {}:\n{}".format(data_mame, key, str(self.variant), data))
 
 ########################################################################

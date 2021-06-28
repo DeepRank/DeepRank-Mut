@@ -1,5 +1,7 @@
 from pdb2sql import pdb2sql
+import numpy
 
+from deeprank.config import logger
 from deeprank.features.FeatureClass import FeatureClass
 from deeprank.config.chemicals import AA_codes, AA_codes_3to1, AA_codes_1to3
 from deeprank.operate.pdb import get_residue_contact_atom_pairs
@@ -91,3 +93,7 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
+
+    for key in [WT_FEATURE_NAME, MUT_FEATURE_NAME, IC_FEATURE_NAME]:
+        data = numpy.array(feature_group.get(key))
+        logger.info("preprocessed {} features for {}:\n{}".format(key, variant, data))
