@@ -741,6 +741,6 @@ class GridTools(object):
 
         for key in dict_data:
             data = np.array(dict_data[key])
-            logger.info("stored grid data {} {} for {}:\n{}".format(data_mame, key, str(self.variant), data))
+            logger.info("stored grid data {} {} for {}:\n{}".format(data_name, key, str(self.variant), data))
 
 ########################################################################
