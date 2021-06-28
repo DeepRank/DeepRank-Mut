@@ -740,7 +740,7 @@ class GridTools(object):
         hdf5data.store_grid_data(self.variant_group, data_name, dict_data, try_sparse=self.try_sparse)
 
         for key in dict_data:
-            data = numpy.array(dict_data[key])
+            data = np.array(dict_data[key])
             logger.info("stored grid data {} {} for {}:\n{}".format(data_mame, key, str(self.variant), data))
 
 ########################################################################
