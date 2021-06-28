@@ -22,6 +22,7 @@ from pdbecif.mmcif_io import CifFileReader
 # Assure that python can find the deeprank files:
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+from deeprank.config import logger
 from deeprank.generate import DataGenerator
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
@@ -36,8 +37,7 @@ arg_parser.add_argument("pssm_root", help="the path to the pssm root directory")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 
 
-logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.DEBUG)
-_log = logging.getLogger(__name__)
+logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
 
 
 mpi_comm = MPI.COMM_WORLD
@@ -135,7 +135,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
                     chain_id = pdb_ac[4]
                     pdb_ac = pdb_ac[:4]
 
-                    _log.debug("encountered {} ({}), mapped to {}-{} residue {}, with core identity {}"
+                    logger.debug("encountered {} ({}), mapped to {}-{} residue {}, with core identity {}"
                                .format(variant, variant_class.name, pdb_ac, chain_id, pdb_residue_number, protein_core_identity))
 
                     pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
@@ -143,7 +143,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
 
                         pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
                         if len(pssm_paths) == 0:
-                            _log.warning("no pssms for: {}".format(pdb_ac))
+                            logger.warning("no pssms for: {}".format(pdb_ac))
                             continue
 
                         # Convert variant to deeprank format:
@@ -151,7 +151,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
                                                 pssm_paths, variant_class)
                         objects.add(o)
                     else:
-                        _log.warning("no such pdb: {}".format(pdb_path))
+                        logger.warning("no such pdb: {}".format(pdb_path))
 
     return list(objects)
 
@@ -165,7 +165,7 @@ def get_subset(variants):
         elif variant.variant_class == VariantClass.BENIGN:
             benign.append(variant)
 
-    _log.debug("variants: got {} benign and {} pathogenic".format(len(benign), len(pathogenic)))
+    logger.info("variants: got {} benign and {} pathogenic".format(len(benign), len(pathogenic)))
 
     count = min(len(benign), len(pathogenic))
 
@@ -177,7 +177,8 @@ def get_subset(variants):
     variants = benign[:count] + pathogenic[:count]
     numpy.random.shuffle(variants)
 
-    _log.debug("variants: taking a subset of {}".format(len(variants)))
+    logger.info("variants: taking a subset of {}".format(len(variants)))
+
     return variants
 
 
@@ -191,5 +192,5 @@ if __name__ == "__main__":
     try:
         preprocess(variants, args.out_path)
     except:
-        _log.error(traceback.format_exc())
+        logger.error(traceback.format_exc())
         raise
