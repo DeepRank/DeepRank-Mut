@@ -1,6 +1,9 @@
 Byte-compiled / optimized
 *__pycache__*
 
+# log files
+*.log
+
 # editor swap files
 *.swp
 
