@@ -87,13 +87,17 @@ class DataGenerator(object):
         """
 
         self.variants = variants
+        logger.debug("preprocess with {} variants".format(len(variants)))
 
         self.align = align
+        logger.debug("preprocess with align={}".format(align))
 
         self.compute_targets = compute_targets
         self.compute_features = compute_features
+        logger.debug("preprocess with targets={}, features={}".format(compute_targets, compute_features))
 
         self.data_augmentation = data_augmentation
+        logger.debug("preprocess with data_augmentation={}".format(data_augmentation))
 
         self.hdf5 = hdf5
 
@@ -991,6 +995,9 @@ class DataGenerator(object):
         >>>
         >>> database.map_features(grid_info,try_sparse=True,time=False,prog_bar=True)
         """
+
+        logger.debug("preprocess, map features with grid_info={}".format(grid_info))
+        logger.debug("preprocess, map features with try_sparse={}".format(try_sparse))
 
         # default CUDA
         cuda_func = None

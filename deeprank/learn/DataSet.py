@@ -128,23 +128,29 @@ class DataSet():
 
         # pdb selection
         self.use_rotation = use_rotation
+        logger.debug("learn with use_rotation={}".format(use_rotation))
 
         # features/targets selection
         self.select_feature = select_feature
         self.select_target = select_target
+        logger.debug("learn with features={}, target={}".format(select_feature, select_target))
 
         # map generation
         self.grid_info = grid_info
+        logger.debug("learn with grid_info={}".format(grid_info))
 
         # data agumentation
         self.data_augmentation = 0
+        logger.debug("learn with data_augmentation={}".format(self.data_augmentation))
 
         # normalization conditions
         self.normalize_features = normalize_features
+        logger.debug("learn with normalize_features={}".format(normalize_features))
 
         # clip the data
         self.clip_features = clip_features
         self.clip_factor = clip_factor
+        logger.debug("learn with clip_features = {}, clip_factor={}".format(clip_features, clip_factor))
 
         # shape of the data
         self.input_shape = None
@@ -154,9 +160,11 @@ class DataSet():
         # get the eventual projection
         self.transform = transform_to_2D
         self.proj2D = projection
+        logger.debug("learn with transform={}, proj2D={}".format(self.transform, self.proj2D))
 
         # filter the dataset
         self.dict_filter = dict_filter
+        logger.debug("learn with dict_filter={}".format(self.dict_filter))
 
         # print the progress bar or not
         self.tqdm = tqdm
@@ -557,6 +565,9 @@ class DataSet():
         f5 = h5py.File(self.train_database[0], 'r')
         mol_name = list(f5.keys())[0]
         mapped_data = f5.get(mol_name + '/mapped_features/')
+
+        if mapped_data is None:
+            raise ValueError("no mapped features in {}".format(mol_name))
 
         # if we select all the features
         if self.select_feature == "all":

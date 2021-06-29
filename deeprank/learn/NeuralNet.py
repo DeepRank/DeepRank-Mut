@@ -781,7 +781,12 @@ class NeuralNet():
             targets = d['target']
             mol = d['mol']
 
-            epoch_logger.debug("data entry {}:\n  has input: {}\n  has target: {}".format(mol, inputs, targets))
+            epoch_logger.debug("data entry {}".format(mol))
+            for input_index, input_ in enumerate(inputs):
+                input_ = np.array(input_)
+                input_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in input_.shape]), np.min(input_), np.max(input_))
+                epoch_logger.debug("  has input %d: {}\n{}".format(input_index, input_summary, input_))
+            epoch_logger.debug("  has target: {}".format(targets))
 
             # transform the data
             inputs, targets = self._get_variables(inputs, targets)

@@ -741,6 +741,7 @@ class GridTools(object):
 
         for key in dict_data:
             data = np.array(dict_data[key])
-            logger.info("stored grid data {} {} for {}:\n{}".format(data_name, key, str(self.variant), data))
+            data_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in data.shape]), np.min(data), np.max(data))
+            logger.info("stored grid data {} {} for {}: {}\n{}".format(data_name, key, str(self.variant), data_summary, data))
 
 ########################################################################
