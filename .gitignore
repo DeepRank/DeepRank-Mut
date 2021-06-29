@@ -10,6 +10,9 @@ Byte-compiled / optimized
 # python intermediary
 *.pyc
 
+# test outputs
+atomic_pair_interaction.dat
+
 # distribution
 deeprank.egg-info
 database*
