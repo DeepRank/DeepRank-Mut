@@ -35,6 +35,7 @@ arg_parser.add_argument("map_path", help="the path to the mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("pssm_root", help="the path to the pssm root directory")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
+arg_parser.add_argument("--data-augmentation", help="the number of data augmentations", type=int, default=0)
 
 
 logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
@@ -48,17 +49,18 @@ feature_modules = ["deeprank.features.atomic_contacts",
 target_modules = ["deeprank.targets.variant_class"]
 
 grid_info = {
-   'number_of_points': [30,30,30],
+   'number_of_points': [15,15,15],
    'resolution': [1.,1.,1.],
    'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
 }
 
 
-def preprocess(variants, hdf5_path):
+def preprocess(variants, hdf5_path, data_augmentation):
     data_generator = DataGenerator(variants,
                                    compute_features=feature_modules,
                                    compute_targets=target_modules,
-                                   hdf5=hdf5_path, mpi_comm=mpi_comm)
+                                   hdf5=hdf5_path, mpi_comm=mpi_comm,
+                                   data_augmentation=data_augmentation)
     data_generator.create_database()
     data_generator.map_features(grid_info)
 
@@ -190,7 +192,7 @@ if __name__ == "__main__":
     variants = get_subset(variants)
 
     try:
-        preprocess(variants, args.out_path)
+        preprocess(variants, args.out_path, args.data_augmentation)
     except:
         logger.error(traceback.format_exc())
         raise
