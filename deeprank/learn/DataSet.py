@@ -283,27 +283,29 @@ class DataSet():
             index (int): index of the complex
 
         Returns:
-            dict: {'mol':[fname,mol],'feature':feature,'target':target}
+            dict: {'mol':[fname,mol],'feature':features,'target':target}
         """
         fname, mol, angle, axis = self.index_complexes[index]
         try:
 
-            feature, target = self.load_one_variant(fname, mol)
+            features, target = self.load_one_variant(fname, mol)
+
+            self._check_features(features)
 
             if self.clip_features:
-                feature = self._clip_feature(feature)
+                features = self._clip_feature(features)
 
             if self.normalize_features:
-                feature = self._normalize_feature(feature)
+                features = self._normalize_feature(features)
 
             if self.transform:
-                feature = self.convert2d(feature, self.proj2D)
+                features = self.convert2d(features, self.proj2D)
 
-            result = {'mol': [fname, mol], 'feature': feature, 'target': target}
+            result = {'mol': [fname, mol], 'feature': features, 'target': target}
             return result
 
-        except:
-            logger.error('Unable to load molecule %s from %s' % (mol, fname))
+        except Exception as e:
+            logger.error('Unable to load molecule %s from %s: %s' % (mol, fname, str(e)))
             raise
 
     @staticmethod
@@ -362,7 +364,7 @@ class DataSet():
             try:
                 fh5 = h5py.File(fdata, 'r')
                 mol_names = list(fh5.keys())
-                mol_names = self._select_pdb(mol_names)
+                mol_names = self._select_variants(mol_names)
                 for k in mol_names:
                     if self.filter(fh5[k]):
                         self.index_complexes += [(fdata,
@@ -401,7 +403,7 @@ class DataSet():
                 try:
                     fh5 = h5py.File(fdata, 'r')
                     mol_names = list(fh5.keys())
-                    mol_names = self._select_pdb(mol_names)
+                    mol_names = self._select_variants(mol_names)
                     self.index_complexes += [(fdata, k, None, None)
                                              for k in mol_names]
                     fh5.close()
@@ -430,7 +432,7 @@ class DataSet():
                 try:
                     fh5 = h5py.File(fdata, 'r')
                     mol_names = list(fh5.keys())
-                    mol_names = self._select_pdb(mol_names)
+                    mol_names = self._select_variants(mol_names)
                     self.index_complexes += [(fdata, k, None, None)
                                              for k in mol_names]
                     fh5.close()
@@ -442,18 +444,18 @@ class DataSet():
             range(self.ntrain + self.nvalid, self.ntot))
         self.ntest = self.ntot - self.ntrain - self.nvalid
 
-    def _select_pdb(self, mol_names):
+    def _select_variants(self, variant_names):
         """Select complexes.
 
         Args:
-            mol_names (list): list of complex names
+            variant_names (list): list of variant names
 
         Returns:
             list: list of selected complexes
         """
 
         fnames_original = list(
-            filter(lambda x: not re.search(r'_r\d+$', x), mol_names))
+            filter(lambda x: not re.search(r'_r\d+$', x), variant_names))
         if self.use_rotation is not None:
             fnames_augmented = []
             # TODO if there is no augmentation data in dataaset,
@@ -461,18 +463,18 @@ class DataSet():
             if self.use_rotation > 0:
                 for i in range(self.use_rotation):
                     fnames_augmented += list(filter(lambda x:
-                                                    re.search('_r%03d$' % (i + 1), x), mol_names))
-                selected_mol_names = fnames_original + fnames_augmented
+                                                    re.search('_r%03d$' % (i + 1), x), variant_names))
+                selected_variant_names = fnames_original + fnames_augmented
             else:
-                selected_mol_names = fnames_original
+                selected_variant_names = fnames_original
         else:
-            selected_mol_names = mol_names
+            selected_variant_names = variant_names
             sample_id = fnames_original[0]
             num_rotations = len(list((filter(lambda x:
-                                re.search(sample_id + '_r', x), mol_names))))
+                                re.search(sample_id + '_r', x), variant_names))))
             self.use_rotation = num_rotations
 
-        return selected_mol_names
+        return selected_variant_names
 
     @staticmethod
     def _insert_before_operators(subject_string, inserting_string):
@@ -793,6 +795,19 @@ class DataSet():
         data *= self.target_max
         data += self.target_min
         return data  # .numpy()
+
+    def _check_features(self, features):
+        """ Check the feature for values that could cause glitches.
+
+        Args:
+            features (np.array): raw feature values
+        """
+
+        if np.any(np.isnan(features)):
+            raise ValueError("NaN detected")
+
+        if np.any(np.isinf(features)):
+            raise ValueError("Infinity detected")
 
     def _normalize_feature(self, feature):
         """Normalize the values of the features.
