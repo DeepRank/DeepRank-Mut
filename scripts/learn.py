@@ -15,14 +15,59 @@ from deeprank.learn.model3d import cnn_class
 logging.basicConfig(filename="learn-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
 
 
+def interpret_args(args, usage):
+    """ Convert a list of commandline arguments into a set of positional and keyword arguments.
+
+        Args (list of str): the commandline arguments
+
+        Returns: (tuple(list of str, dict of str)): the positional and keyword arguments
+    """
+
+    if len(args) == 0:
+        print(usage)
+        sys.exit(1)
+
+    if "--help" or "-h" in args:
+        print(usage)
+        sys.exit(0)
+
+    positional_args = []
+    kwargs = {}
+    i = 0
+    while i < len(args):
+
+        if args[i].startswith("--"):
+            key = args[i][2:]
+
+            i += 1
+            kwargs[key] = args[i]
+
+        elif args[i].startswith("-"):
+            key = args[i][1:2]
+
+            if len(args[i]) > 2:
+                kwargs[key] = args[i][2:]
+            else:
+                i += 1
+                kwargs[key] = args[i]
+        else:
+            positional_args.append(args[i])
+
+        i += 1
+
+    return (positional_args, kwargs)
+
+
 if __name__ == "__main__":
 
-    if len(sys.argv) == 1:
-        raise RuntimeError("at least one hdf5 file input argument is required")
+    usage = "Usage: %s [-e EPOCH_COUNT] *preprocessed_hdf5_files" % sys.argv[0]
 
-    grid_info = {'number_of_points': [30,30,30], 'resolution': [1.,1.,1.], 'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}}
-    dataset = DataSet(sys.argv[1:], grid_info=grid_info, normalize_features=True)
+    args, kwargs = interpret_args(sys.argv[1:], usage)
+
+    dataset = DataSet(args, normalize_features=True)
+
+    nepoch = kwargs.get('e', 50)
 
     neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class', cuda=False, plot=True, outdir="net-output")
     neural_net.optimizer = optim.SGD(neural_net.net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.005)
-    neural_net.train(nepoch = 50, divide_trainset=[0.7, 0.2, 0.1], train_batch_size = 5, num_workers=0)
+    neural_net.train(nepoch = nepoch, divide_trainset=[0.7, 0.2, 0.1], train_batch_size = 5, num_workers=0)
