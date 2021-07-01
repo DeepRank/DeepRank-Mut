@@ -69,8 +69,8 @@ if __name__ == "__main__":
     if len(args) == 0:
         raise RuntimeError("No preprocessed HDF5 files given")
 
-    nepoch = kwargs.get('e', 50)
+    epoch_count = int(kwargs.get('e', 50))
 
     neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class', cuda=False, plot=True, outdir="net-output")
     neural_net.optimizer = optim.SGD(neural_net.net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.005)
-    neural_net.train(nepoch = nepoch, divide_trainset=[0.7, 0.2, 0.1], train_batch_size = 5, num_workers=0)
+    neural_net.train(nepoch = epoch_count, divide_trainset=[0.7, 0.2, 0.1], train_batch_size = 5, num_workers=0)
