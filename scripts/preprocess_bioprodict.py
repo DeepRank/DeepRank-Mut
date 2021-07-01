@@ -30,12 +30,15 @@ from deeprank.config.chemicals import AA_codes_3to1
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
-arg_parser.add_argument("variant_path", help="the path to the variant parquet file")
-arg_parser.add_argument("map_path", help="the path to the mapping hdf5 file")
+arg_parser.add_argument("variant_path", help="the path to the (dataset) variant parquet file")
+arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
-arg_parser.add_argument("pssm_root", help="the path to the pssm root directory")
+arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
-arg_parser.add_argument("--data-augmentation", help="the number of data augmentations", type=int, default=0)
+arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=0)
+arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=15)
+arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of each edge of the 3d grid", type=float, default=15)
+
 
 
 logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
@@ -48,14 +51,17 @@ feature_modules = ["deeprank.features.atomic_contacts",
                    "deeprank.features.neighbour_profile"]
 target_modules = ["deeprank.targets.variant_class"]
 
-grid_info = {
-   'number_of_points': [15,15,15],
-   'resolution': [1.,1.,1.],
-   'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
-}
 
+def preprocess(variants, hdf5_path, data_augmentation, grid_info):
+    """ Generate the preprocessed data as an hdf5 file
 
-def preprocess(variants, hdf5_path, data_augmentation):
+        Args:
+            variants (list of PdbVariantSelection objects): the variant data
+            hdf5_path (str): the output HDF5 path
+            data_augmentation (int): the number of data augmentations per variant
+            grid_info (dict): the settings for the grid
+    """
+
     data_generator = DataGenerator(variants,
                                    compute_features=feature_modules,
                                    compute_targets=target_modules,
@@ -66,6 +72,15 @@ def preprocess(variants, hdf5_path, data_augmentation):
 
 
 def get_pssm_paths(pssm_root, pdb_ac):
+    """ Finds the PSSM files associated with a PDB entry
+
+        Args:
+            pssm_root (str):  path to the directory where the PSSMgen output files are located
+            pdb_ac (str): pdb accession code of the entry of interest
+
+        Returns (dict of strings): the PSSM file paths per PDB chain identifier
+    """
+
     paths = glob(os.path.join(pssm_root, "%s/pssm/%s.?.pdb.pssm" % (pdb_ac.lower(), pdb_ac.lower())))
     return {path.split('.')[1]: path for path in paths}
 
@@ -76,6 +91,17 @@ def get_pssm_paths(pssm_root, pdb_ac):
 
 
 def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
+    """ Extract data from the dataset and convert to variant objects.
+
+        Args:
+            parq_path (str): path to the bioprodict parq file, containing the variants
+            hdf5_path (str): path to the bioprodict hdf5 file, mapping the variants to pdb entries
+            pdb_root (str): path to the directory where the pdb files are located as: pdb????.ent
+            pssm_root (str): path to the directory where the PSSMgen output files are located
+
+        Returns (list of PdbVariantSelection objects): the variants in the dataset
+        Raises (ValueError): if data is inconsistent
+    """
 
     class_table = pandas.read_parquet(parq_path)
     variant_table = pandas.read_hdf(hdf5_path, "variants")
@@ -159,6 +185,14 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
 
 
 def get_subset(variants):
+    """ Take a subset of the input list of variants so that the ratio benign/pathogenic is 50 / 50
+
+        Args:
+            variants (list of PdbVariantSelection objects): the input variants
+
+        Returns (list of PdbVariantSelection objects): the subset of variants, taken from the input
+    """
+
     benign = []
     pathogenic = []
     for variant in variants:
@@ -187,12 +221,20 @@ def get_subset(variants):
 if __name__ == "__main__":
     args = arg_parser.parse_args()
 
+    resolution = args.grid_size / args.grid_points
+
+    grid_info = {
+       'number_of_points': [args.grid_points, args.grid_points, args.grid_points],
+       'resolution': [resolution, resolution, resolution],
+       'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+    }
+
     variants = get_variant_data(args.variant_path, args.map_path, args.pdb_root, args.pssm_root)
 
     variants = get_subset(variants)
 
     try:
-        preprocess(variants, args.out_path, args.data_augmentation)
+        preprocess(variants, args.out_path, args.data_augmentation, grid_info)
     except:
         logger.error(traceback.format_exc())
         raise
