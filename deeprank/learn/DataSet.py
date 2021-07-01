@@ -286,27 +286,20 @@ class DataSet():
             dict: {'mol':[fname,mol],'feature':features,'target':target}
         """
         fname, mol, angle, axis = self.index_complexes[index]
-        try:
 
-            features, target = self.load_one_variant(fname, mol)
+        features, target = self.load_one_variant(fname, mol)
 
-            self._check_features(features)
+        if self.clip_features:
+            features = self._clip_feature(features)
 
-            if self.clip_features:
-                features = self._clip_feature(features)
+        if self.normalize_features:
+            features = self._normalize_feature(features)
 
-            if self.normalize_features:
-                features = self._normalize_feature(features)
+        if self.transform:
+            features = self.convert2d(features, self.proj2D)
 
-            if self.transform:
-                features = self.convert2d(features, self.proj2D)
-
-            result = {'mol': [fname, mol], 'feature': features, 'target': target}
-            return result
-
-        except Exception as e:
-            logger.error('Unable to load molecule %s from %s: %s' % (mol, fname, str(e)))
-            raise
+        result = {'mol': [fname, mol], 'feature': features, 'target': target}
+        return result
 
     @staticmethod
     def check_hdf5_files(database):
@@ -383,7 +376,7 @@ class DataSet():
 
         if self.ntrain == 0:
             raise ValueError(
-                'No avaiable training data after filtering')
+                'No available training data after filtering')
 
         # Validation dataset
         if self.valid_database:
@@ -796,22 +789,6 @@ class DataSet():
         data += self.target_min
         return data  # .numpy()
 
-    def _check_features(self, features):
-        """ Check the feature for values that could cause glitches.
-
-        Args:
-            features (np.array): raw feature values
-        """
-
-        if np.any(np.isnan(features)):
-            raise ValueError("NaN detected")
-
-        if np.any(np.isinf(features)):
-            raise ValueError("Infinity detected")
-
-        if np.all((features == 0)):
-            raise ValueError("all zero")
-
     def _normalize_feature(self, feature):
         """Normalize the values of the features.
 
@@ -923,19 +900,14 @@ class DataSet():
             for name in feat_names:
 
                 # extract the group
-                try:
-                    data = feat_dict[name]
-                except KeyError:
-                    logger.error(
-                        f'Feature {name} not found in file {fname} for variant '
-                        f'{variant_name} and feature type {feat_type}.\n'
-                        f'Possible feature are:\n\t' +
-                        '\n\t'.join(list(
-                            variant_data['mapped_features/' +
-                                     feat_type].keys()
-                        ))
-                    )
-                    continue
+                if name not in feat_dict:
+                    raise ValueError(f'Feature {name} not found in file {fname} for variant '
+                                     f'{variant_name} and feature type {feat_type}.\n'
+                                     '\n\t'.join(list(
+                                        variant_data['mapped_features/' + feat_type].keys()
+                                     )))
+
+                data = feat_dict[name]
 
                 # check its sparse attribute
                 # if true get a FLAN

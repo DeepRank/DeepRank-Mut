@@ -153,7 +153,7 @@ class GridTools(object):
     ################################################################
 
     def create_new_data(self):
-        """Create new feature for a given complex."""
+        """Create new feature for a given variant."""
 
         # get the position/atom type .. of the complex
         self.read_pdb()
@@ -179,7 +179,7 @@ class GridTools(object):
     ################################################################
 
     def update_feature(self):
-        """Update existing feature in a complex."""
+        """Update existing feature in a variant."""
 
         # get the position/atom type .. of the complex
         # get self.sqldb
@@ -729,6 +729,24 @@ class GridTools(object):
 
     # save the data in the hdf5 file
 
+    @staticmethod
+    def _check_features(name, features):
+        """ Check the feature for values that could cause glitches.
+
+        Args:
+            features (np.array): raw feature values
+        """
+
+        if np.any(np.isnan(features)):
+            raise ValueError("%s: NaN detected" % name)
+
+        if np.any(np.isinf(features)):
+            raise ValueError("%s: Infinity detected" % name)
+
+        if np.all((features == 0)):
+            raise ValueError("%s: all zero" % name)
+
+
     def hdf5_grid_data(self, dict_data, data_name):
         """Save the mapped feature to the hdf5 file.
 
@@ -741,6 +759,9 @@ class GridTools(object):
 
         for key in dict_data:
             data = np.array(dict_data[key])
+
+            GridTools._check_features("%s[%s] from %s" % (data_name, key, str(self.variant)), data)
+
             data_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in data.shape]), np.min(data), np.max(data))
             logger.info("stored grid data {} {} for {}: {}\n{}".format(data_name, key, str(self.variant), data_summary, data))
 
