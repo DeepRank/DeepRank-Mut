@@ -27,7 +27,7 @@ def interpret_args(args, usage):
         print(usage)
         sys.exit(1)
 
-    if "--help" or "-h" in args:
+    if "--help" in args or "-h" in args:
         print(usage)
         sys.exit(0)
 
@@ -65,6 +65,9 @@ if __name__ == "__main__":
     args, kwargs = interpret_args(sys.argv[1:], usage)
 
     dataset = DataSet(args, normalize_features=True)
+
+    if len(args) == 0:
+        raise RuntimeError("No preprocessed HDF5 files given")
 
     nepoch = kwargs.get('e', 50)
 
