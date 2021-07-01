@@ -809,6 +809,9 @@ class DataSet():
         if np.any(np.isinf(features)):
             raise ValueError("Infinity detected")
 
+        if np.all((features == 0)):
+            raise ValueError("all zero")
+
     def _normalize_feature(self, feature):
         """Normalize the values of the features.
 
