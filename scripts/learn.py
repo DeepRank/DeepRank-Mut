@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import os
 import logging
@@ -5,7 +7,8 @@ import logging
 import torch.optim as optim
 
 # Assure that python can find the deeprank files:
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+deeprank_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, deeprank_root)
 
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.DataSet import DataSet

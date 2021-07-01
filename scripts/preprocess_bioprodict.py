@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import sys
 import os
@@ -20,7 +22,8 @@ import gzip
 from pdbecif.mmcif_io import CifFileReader
 
 # Assure that python can find the deeprank files:
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+deeprank_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, deeprank_root)
 
 from deeprank.config import logger
 from deeprank.generate import DataGenerator
