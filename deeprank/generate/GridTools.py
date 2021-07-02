@@ -743,9 +743,6 @@ class GridTools(object):
         if np.any(np.isinf(features)):
             raise ValueError("%s: Infinity detected" % name)
 
-        if np.all((features == 0)):
-            raise ValueError("%s: all zero" % name)
-
 
     def hdf5_grid_data(self, dict_data, data_name):
         """Save the mapped feature to the hdf5 file.
