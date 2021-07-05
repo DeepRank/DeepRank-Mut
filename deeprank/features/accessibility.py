@@ -35,7 +35,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
     "computes SASA-based features"
 
     # Let pdb2sql tell us which atoms are around the variant residue:
-    distance_cutoff = 8.5
+    distance_cutoff = 10.0
     atoms_keys = set([])
     chain_ids = set([])
     for atom in get_atoms_of_iterest(variant, distance_cutoff):
