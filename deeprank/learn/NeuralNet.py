@@ -29,7 +29,7 @@ matplotlib.use('agg')
 class NeuralNet():
 
     def __init__(self, data_set, model,
-                 model_type='3d', proj2d=0, task='reg',
+                 model_type='3d', proj2d=0, task='class',
                  class_weights = None,
                  pretrained_model=None,
                  cuda=False, ngpu=0,
