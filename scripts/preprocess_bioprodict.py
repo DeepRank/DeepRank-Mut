@@ -39,8 +39,8 @@ arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=0)
-arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=15)
-arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of each edge of the 3d grid", type=float, default=15)
+arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
+arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of each edge of the 3d grid", type=float, default=20)
 
 
 
