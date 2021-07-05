@@ -74,7 +74,7 @@ class _PhysicsStorage:
     EPSILON0 = 1.0
     COULOMB_CONSTANT = 332.0636
 
-    VANDERWAALS_DISTANCE_OFF = 8.5
+    VANDERWAALS_DISTANCE_OFF = 10.0
     VANDERWAALS_DISTANCE_ON = 6.5
 
     SQUARED_VANDERWAALS_DISTANCE_OFF = numpy.square(VANDERWAALS_DISTANCE_OFF)
@@ -273,7 +273,7 @@ class AtomicContacts(FeatureClass):
 
     def __init__(self, variant,
                  top_path, param_path, patch_path,
-                 max_contact_distance=8.5):
+                 max_contact_distance=10.0):
         """Build a new residue contacts feature object
 
         Args:
