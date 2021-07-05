@@ -62,7 +62,7 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     "this feature module adds amino acid probability and residue information content as deeprank features"
 
     # Get the C-alpha atoms, each belongs to a neighbouring residue
-    neighbour_c_alphas = get_neighbour_c_alphas(variant, 8.5)
+    neighbour_c_alphas = get_neighbour_c_alphas(variant, 10.0)
 
     # Give each chain id a number:
     chain_ids = set([atom.chain_id for atom in neighbour_c_alphas])
