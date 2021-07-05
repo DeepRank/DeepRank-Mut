@@ -120,7 +120,7 @@ class DataGenerator(object):
             verbose=False,
             remove_error=True,
             prog_bar=False,
-            contact_distance=8.5,
+            contact_distance=10.0,
             random_seed=None):
         """Create the hdf5 file architecture and compute the features/targets.
 
@@ -128,7 +128,7 @@ class DataGenerator(object):
             verbose (bool, optional): Print creation details
             remove_error (bool, optional): remove the groups that errored
             prog_bar (bool, optional): use tqdm
-            contact_distance (float): contact distance cutoff, defaults to 8.5Å
+            contact_distance (float): contact distance cutoff, defaults to 10.0Å
             random_seed (int): random seed for getting rotation axis and angle
 
         Raises:
@@ -469,7 +469,7 @@ class DataGenerator(object):
             >>> database = DataGenerator(h5='database.h5')
             >>> database.aug_data(augmentation=3, append=True)
             >>> grid_info = {
-            >>>     'number_of_points': [30,30,30],
+            >>>     'number_of_points': [20,20,20],
             >>>     'resolution': [1.,1.,1.],
             >>>     'atomic_densities': {'C':1.7, 'N':1.55, 'O':1.52, 'S':1.8},
             >>>     }
@@ -906,7 +906,7 @@ class DataGenerator(object):
 
     def precompute_grid(self,
                         grid_info,
-                        contact_distance=8.5,
+                        contact_distance=10.0,
                         prog_bar=False,
                         time=False,
                         try_sparse=True):
@@ -988,7 +988,7 @@ class DataGenerator(object):
         >>>
         >>> # map the features
         >>> grid_info = {
-        >>>     'number_of_points': [30,30,30],
+        >>>     'number_of_points': [20,20,20],
         >>>     'resolution': [1.,1.,1.],
         >>>     'atomic_densities': {'C':1.7, 'N':1.55, 'O':1.52, 'S':1.8},
         >>> }
