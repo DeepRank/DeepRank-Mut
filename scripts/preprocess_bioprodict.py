@@ -140,9 +140,9 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
             pdb_ac = variant_row["pdb_structure"]
             protein_core_identity = variant_row["protein_core_identity"]
 
-            # filter by core identity
-            if protein_core_identity < 70.0:
-                continue
+#            # filter by core identity
+#            if protein_core_identity < 70.0:
+#                continue
 
             # filter by uniprot accession code
             protein_rows = conservation_table.loc[uniprot_ac]
