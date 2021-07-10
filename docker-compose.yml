@@ -1,0 +1,12 @@
+version: "3"
+services:
+  deeprank:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/srv/data/users/cbaakman/deeprank-runs:/runs"
+      - "/srv/data/users/cbaakman/deeprank-datasets:/datasets"
+      - "/srv/data/pdb:/pdb"
+      - "/srv/data/pssm-gen:/pssm-gen"
+    working_dir: /runs/run0
