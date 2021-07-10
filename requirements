@@ -10,3 +10,5 @@ tqdm
 matplotlib
 biopython
 mpi4py
+pdbecif
+tables
