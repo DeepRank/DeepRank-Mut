@@ -42,7 +42,7 @@ def train(rank):
                         select_target='class')
 
     model = NeuralNetDDP(data_set, cnn_class, model_type='3d', task='class', cuda=True, plot=True, outdir='test/output', save_classmetrics=True)
-    model.train(nepoch=2, divide_trainset=0.8, train_batch_size=5, num_workers=2, rank=rank)
+    model.train(nepoch=50, divide_trainset=0.8, train_batch_size=5, num_workers=2, rank=rank)
 
 if __name__ == "__main__":
     spmd_main()
