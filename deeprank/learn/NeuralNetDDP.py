@@ -31,14 +31,11 @@ matplotlib.use('agg')
 class NeuralNetDDP():
 
     def __init__(self, data_set, model,
-                 model_type='3d', proj2d=0, task='reg',
+                 model_type='3d', proj2d=0, task='class',
                  class_weights = None,
                  pretrained_model=None,
-                 chain1='A',
-                 chain2='B',
                  cuda=False, ngpu=0,
                  plot=True,
-                 save_hitrate=True,
                  save_classmetrics=False,
                  outdir='./'):
         """Train a Convolutional Neural Network for DeepRank.
@@ -67,15 +64,10 @@ class NeuralNetDDP():
                 each class. If given, has to be a Tensor of size #classes.
                 Only applicable on 'class' task.
             pretrained_model (str): Saved model to be used for further
-                training or testing. When using pretrained model,
-                remember to set the following 'chain1' and 'chain2' for
-                the new data.
-            chain1 (str): first chain ID of new data when using pretrained model
-            chain2 (str): second chain ID of new data when using pretrained model
+                training or testing.
             cuda (bool): Use CUDA.
             ngpu (int): number of GPU to be used.
             plot (bool): Plot the prediction results.
-            save_hitrate (bool): Save and plot hit rate.
             save_classmetrics (bool): Save and plot classification metrics.
                 Classification metrics include:
                 - accuracy(ACC)
@@ -93,7 +85,6 @@ class NeuralNetDDP():
         self.ngpu = ngpu
         self.task = task
         self.plot = plot
-        self.save_hitrate = save_hitrate
         self.outdir = outdir
         self.save_classmetrics = save_classmetrics
        
@@ -113,9 +104,10 @@ class NeuralNetDDP():
             else:
                 self.state = torch.load(self.pretrained_model)
 
+            # create the dataset if required
+            # but don't process it yet
             if isinstance(self.data_set, (str, list)):
-                self.data_set = DataSet(self.data_set, chain1=chain1,
-                                    chain2=chain2, process=False)
+                self.data_set = DataSet(self.data_set, process=False)
 
             self.load_data_params()
             self.data_set.process_dataset()
@@ -147,6 +139,7 @@ class NeuralNetDDP():
         if self.save_classmetrics:
             self.metricnames = ['acc', 'tpr', 'tnr']
 
+        #rank is an unique id for each gpu
         rank = int(os.environ["RANK"])
         model = model(self.data_set.input_shape).to(rank)
         ddp_model = DDP(model,device_ids=[rank])
@@ -692,7 +685,7 @@ class NeuralNetDDP():
             torch.Variable: features
             torch.Variable: target values
         """
-        
+
         inputs, targets = Variable(inputs).float(), Variable(targets).float().to(self.rank)
 
         if self.task == 'class':
