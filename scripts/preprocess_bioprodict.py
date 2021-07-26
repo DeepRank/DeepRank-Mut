@@ -154,20 +154,20 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
             for alignment_position in alignment_positions:
 
                 # filter by pdb accession code
-                pdb_rows = conservation_table.loc[pdb_ac]
+                pdb_rows = pdb_table.loc[pdb_ac]
 
                 # filter by alignment position
-                pdb_residue_numbers = pdb_rows.where(pdb_rows.alignment_position == alignment_position)["sequence_residue_number"].dropna()
+                pdb_numbers = pdb_rows.where(pdb_rows.alignment_position == alignment_position)["pdbnumber"].dropna()
 
-                for pdb_residue_number in pdb_residue_numbers:
-                    pdb_residue_number = int(pdb_residue_number)  # convert from float to int
+                for pdb_number in pdb_numbers:
+                    pdb_number = int(pdb_number)  # convert from float to int
 
                     # split up the pdb accession code into an entry and a chain id
                     chain_id = pdb_ac[4]
                     pdb_ac = pdb_ac[:4]
 
                     logger.debug("encountered {} ({}), mapped to {}-{} residue {}, with core identity {}"
-                               .format(variant, variant_class.name, pdb_ac, chain_id, pdb_residue_number, protein_core_identity))
+                               .format(variant, variant_class.name, pdb_ac, chain_id, pdb_number, protein_core_identity))
 
                     pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
                     if os.path.isfile(pdb_path):
@@ -178,7 +178,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
                             continue
 
                         # Convert variant to deeprank format:
-                        o = PdbVariantSelection(pdb_path, chain_id, pdb_residue_number, AA_codes_3to1[var_amino_acid_code],
+                        o = PdbVariantSelection(pdb_path, chain_id, pdb_number, AA_codes_3to1[var_amino_acid_code],
                                                 pssm_paths, variant_class)
                         objects.add(o)
                     else:
