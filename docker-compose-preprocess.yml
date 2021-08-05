@@ -1,0 +1,17 @@
+version: "3"
+services:
+  deeprank:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/home/cbaakman/deeprank-runs:/runs"
+      - "/home/cbaakman/deeprank-datasets:/datasets"
+      - "/home/cbaakman/pdb:/pdb"
+      - "/home/cbaakman/pssm-gen:/pssm-gen"
+    working_dir: /runs/run-mp
+    environment:
+        - MASTER_ADDR=0.0.0.0
+        - MASTER_PORT=1088
+        - RANK=0
+        - WORLD_SIZE=1

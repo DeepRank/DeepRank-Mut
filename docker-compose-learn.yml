@@ -1,0 +1,11 @@
+version: "3"
+services:
+  deeprank:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/home/cbaakman/deeprank-runs:/runs"
+      - "/home/cbaakman/variants-grid.hdf5:/data/variants.hdf5:ro"
+    working_dir: /runs/run1
+    command: python /usr/src/app/scripts/learn.py /data/variants.hdf5
