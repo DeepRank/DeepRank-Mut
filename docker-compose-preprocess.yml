@@ -9,7 +9,8 @@ services:
       - "/home/cbaakman/deeprank-datasets:/datasets"
       - "/home/cbaakman/pdb:/pdb"
       - "/home/cbaakman/pssm-gen:/pssm-gen"
-    working_dir: /runs/run-mp
+    working_dir: /runs/run2
+    command: mpiexec -n 10 --allow-run-as-root /usr/src/app/scripts/preprocess_bioprodict.py /datasets/54e500aa7123e7f2f6ca4062db0e4fa4_efro_t96_25052021.parq /datasets/GPCR_variantsv2_increased_coverage.hdf5 /pdb /pssm-gen variants.hdf5
     environment:
         - MASTER_ADDR=0.0.0.0
         - MASTER_PORT=1088
