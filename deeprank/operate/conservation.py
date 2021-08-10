@@ -20,9 +20,9 @@ from deeprank.config.chemicals import AA_codes_1to3
 # 4N6HA                          408          G               266.0   pdb_v3.016122             1584.0  ...     0.084595          0.0     0.000631          0.0       0.637695
 
 
-# >>> pandas.read_hdf("/home/cbaakman/deeprank-datasets/GPCR_variantsv2_increased_coverage.hdf5", "pdbs")
+# >>> pandas.read_hdf("GPCR_variantsv2_increased_coverage.hdf5", "pdbs")
 #           pdbnumber      pdb_x      pdb_y      pdb_z  pdb_accessibility  pdb_bvalue  pdb_residuenumber  alignment_position
-# accession                                                                                                                 
+# accession
 # 5TZYA             2  -8.789062   8.476562  65.312500          154.37500    133.2500                1.0                 NaN
 # 5TZYA             3 -10.773438  10.515625  62.750000           37.46875    196.7500                2.0                 NaN
 # 5TZYA             4 -11.843750  14.164062  63.500000           70.00000    216.2500                3.0                 NaN
@@ -37,7 +37,7 @@ from deeprank.config.chemicals import AA_codes_1to3
 
 
 def get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_accession, pdb_chain_id):
-    accession_code = "%s%s" % (pdb_accession, pdb_chain_id)
+    accession_code = ("%s%s" % (pdb_accession, pdb_chain_id)).upper()
 
     pdb_translation = {}
     for index, row in pdb_dataframe.loc[accession_code].iterrows():

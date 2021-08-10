@@ -15,10 +15,10 @@ WT_FEATURE_NAME = "wild_type_probability"
 MUT_FEATURE_NAME = "mutant_probability"
 
 def get_neighbour_c_alphas(variant, distance_cutoff):
-    pdb = pdb2sql(variant.pdb_path)
+    db = pdb2sql(variant.pdb_path)
     try:
         atoms = set([])
-        for atom1, atom2 in get_residue_contact_atom_pairs(pdb, variant.chain_id, variant.residue_number, distance_cutoff):
+        for atom1, atom2 in get_residue_contact_atom_pairs(db, variant.chain_id, variant.residue_number, distance_cutoff):
 
             # For each residue in the contact range, get the C-alpha:
             for atom in (atom1.residue.atoms + atom2.residue.atoms):
@@ -27,27 +27,31 @@ def get_neighbour_c_alphas(variant, distance_cutoff):
 
         return atoms
     finally:
-        pdb._close()
+        db._close()
 
 
 def get_c_alpha_pos(variant):
-    pdb = pdb2sql(variant.pdb_path)
+    db = pdb2sql(variant.pdb_path)
     try:
-        position = pdb.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, name="CA")[0]
+        position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, name="CA")[0]
 
         return position
     finally:
-        pdb._close()
+        db._close()
 
 
 def get_wild_type_amino_acid(variant):
-    pdb = pdb2sql(variant.pdb_path)
+    db = pdb2sql(variant.pdb_path)
     try:
-        amino_acid_code = pdb.get("resName", chainID=variant.chain_id, resSeq=variant.residue_number)[0]
+        residue_names = db.get("resName", chainID=variant.chain_id, resSeq=variant.residue_number)
+        if len(residue_names) == 0:
+            raise ValueError("no residue {} {} in {}".format(variant.chain_id, variant.residue_number, variant.pdb_path))
+
+        amino_acid_code = residue_names[0]
 
         return amino_acid_code
     finally:
-        pdb._close()
+        db._close()
 
 
 def _get_pssm(chain_ids, variant):
@@ -87,7 +91,7 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     # For each neighbouring C-alpha, get the residue's PSSM features:
     feature_object.feature_data_xyz[IC_FEATURE_NAME] = {}
     for atom in neighbour_c_alphas:
-        xyz_key = tuple([chain_numbers[atom.chain_id]] + atom.position)
+        xyz_key = tuple(atom.position)
 
         feature_object.feature_data_xyz[IC_FEATURE_NAME][xyz_key] = [pssm.get_information_content(atom.residue)]
 
