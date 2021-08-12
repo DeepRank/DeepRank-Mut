@@ -17,7 +17,7 @@ def test_assign_parameters():
     param_path = os.path.join(forcefield_path, 'protein-allhdg5-4_new.param')
     patch_path = os.path.join(forcefield_path, 'patch.top')
 
-    variant = PdbVariantSelection(pdb_path, "A", None, None)  # don't care about the amino acid change
+    variant = PdbVariantSelection(pdb_path, "A", None, None, None)  # don't care about the amino acid change
 
     with AtomicContacts(variant, top_path, param_path, patch_path) as feature_obj:
 
@@ -58,7 +58,7 @@ def test_assign_parameters():
 def test_compute_feature():
     pdb_path = "test/1AK4/native/1AK4.pdb"
 
-    variant = PdbVariantSelection(pdb_path, 'C', 25, 'A')
+    variant = PdbVariantSelection(pdb_path, 'C', 25, 'F', 'A')
 
     tmp_path = tempfile.mkdtemp()
     try:

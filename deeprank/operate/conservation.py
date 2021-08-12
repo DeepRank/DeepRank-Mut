@@ -51,7 +51,7 @@ def get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_
         amino_acid = AA_codes_1to3[row["amino_acid"]]
         pdb_number = pdb_translation[sequence_number]
 
-        residue_id = Residue(pdb_number, amino_acid, pdb_chain_id)
+        residue_id = Residue(int(pdb_number), amino_acid, pdb_chain_id)
         conservation_table[residue_id] = {}
         for amino_acid_letter in AA_codes_1to3:
             key = "sub_consv_%s" % amino_acid_letter

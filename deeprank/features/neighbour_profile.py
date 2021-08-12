@@ -12,7 +12,7 @@ from deeprank.models.residue import Residue
 
 IC_FEATURE_NAME = "residue_information_content"
 WT_FEATURE_NAME = "wild_type_probability"
-MUT_FEATURE_NAME = "mutant_probability"
+VAR_FEATURE_NAME = "variant_probability"
 
 def get_neighbour_c_alphas(variant, distance_cutoff):
     db = pdb2sql(variant.pdb_path)
@@ -45,7 +45,8 @@ def get_wild_type_amino_acid(variant):
     try:
         residue_names = db.get("resName", chainID=variant.chain_id, resSeq=variant.residue_number)
         if len(residue_names) == 0:
-            raise ValueError("no residue {} {} in {}".format(variant.chain_id, variant.residue_number, variant.pdb_path))
+            raise ValueError("no residue {} {} in {}"
+                             .format(variant.chain_id, variant.residue_number, variant.pdb_path))
 
         amino_acid_code = residue_names[0]
 
@@ -81,12 +82,12 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     c_alpha_position = get_c_alpha_pos(variant)
     wild_type_code = get_wild_type_amino_acid(variant)
     residue_id = Residue(variant.residue_number, wild_type_code, variant.chain_id)
-    wild_type_probability = pssm.get_probability(residue_id, wild_type_code)
-    mutant_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.amino_acid])
+    wild_type_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.wild_type_amino_acid])
+    variant_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.variant_amino_acid])
     xyz_key = tuple(c_alpha_position)
 
     feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wild_type_probability]}
-    feature_object.feature_data_xyz[MUT_FEATURE_NAME] = {xyz_key: [mutant_probability]}
+    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {xyz_key: [variant_probability]}
 
     # For each neighbouring C-alpha, get the residue's PSSM features:
     feature_object.feature_data_xyz[IC_FEATURE_NAME] = {}
@@ -98,6 +99,6 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
 
-    for key in [WT_FEATURE_NAME, MUT_FEATURE_NAME, IC_FEATURE_NAME]:
+    for key in [WT_FEATURE_NAME, VAR_FEATURE_NAME, IC_FEATURE_NAME]:
         data = numpy.array(feature_group.get(key))
         logger.info("preprocessed {} features for {}:\n{}".format(key, variant, data))

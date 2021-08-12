@@ -432,7 +432,7 @@ class GridTools(object):
         """ Extract metadata from an input xyz feature row.
             The row format is: x y z [values]
 
-            Returns (triple): chain number(float), position(float list of length 3) and values(float list)
+            Returns (triple): position(float list of length 3) and values(float list)
         """
 
         position_dimension = 3

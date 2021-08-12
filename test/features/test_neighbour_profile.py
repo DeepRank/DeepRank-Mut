@@ -3,9 +3,9 @@ from tempfile import mkdtemp
 from shutil import rmtree
 
 import h5py
-from nose.tools import ok_
+from nose.tools import ok_, eq_
 
-from deeprank.features.neighbour_profile import (__compute_feature__,
+from deeprank.features.neighbour_profile import (__compute_feature__, get_wild_type_amino_acid,
                                                  IC_FEATURE_NAME, WT_FEATURE_NAME, MUT_FEATURE_NAME)
 from deeprank.models.variant import PdbVariantSelection
 
@@ -16,7 +16,7 @@ def test_feature():
     try:
         hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
 
-        variant = PdbVariantSelection("test/101M.pdb", "A", 25, "W",
+        variant = PdbVariantSelection("test/101M.pdb", "A", 25, "G", "W",
                                       {'A': "test/101M.A.pdb.pssm"})
 
         with h5py.File(hdf5_path, 'w') as f5:
@@ -30,3 +30,8 @@ def test_feature():
     finally:
         rmtree(tmp_dir_path)
 
+
+def test_wt():
+    variant = PdbVariantSelection("test/5unf.pdb", "B", 164, "V", "A")
+    wt = get_wild_type_amino_acid(variant)
+    eq_(wt, "VAL")

@@ -47,7 +47,7 @@ def test_atomic_contacts_mapping():
     """
 
     pdb_path = "test/101M.pdb"
-    variant = PdbVariantSelection(pdb_path, 'A', 138, 'Y')
+    variant = PdbVariantSelection(pdb_path, 'A', 138, 'F', 'Y')
     variant_name = "101M-F138Y"
 
     feature_types = ["vdwaals", "coulomb", "charge"]
@@ -128,7 +128,7 @@ def test_feature_mapping():
             ]:
                f.write(line) 
 
-        variant = PdbVariantSelection(pdb_path, 'A', 1, 'V')
+        variant = PdbVariantSelection(pdb_path, 'A', 1, 'X', 'V')
         variant_name = "1XXX-X1V"
 
         tmp_path = os.path.join(tmp_dir, "test.hdf5")

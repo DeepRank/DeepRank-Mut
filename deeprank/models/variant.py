@@ -13,16 +13,20 @@ class PdbVariantSelection:
         pdb_path (str): on disk file path to the pdb file
         chain_id (str): chain within the pdb file, where the variation is
         residue_number (int): the identifying number of the residue within the protein chain
-        amino_acid (str): one letter code of the amino acid to place at this position
+        wild_type_amino_acid (str): one letter code of the wild-type amino acid at this position
+        variant_amino_acid (str): one letter code of the amino acid to place at this position
         pssm_paths_by_chain (dict(str, str), optional): the paths of the pssm files per chain id, associated with the pdb file
         variant_class (VariantClass, optional): if known, the expected classification of the variant
     """
 
-    def __init__(self, pdb_path, chain_id, residue_number, amino_acid, pssm_paths_by_chain=None, variant_class=None):
+    def __init__(self, pdb_path, chain_id, residue_number,
+                 wild_type_amino_acid, variant_amino_acid,
+                 pssm_paths_by_chain=None, variant_class=None):
         self._pdb_path = pdb_path
         self._chain_id = chain_id
         self._residue_number = residue_number
-        self._amino_acid = amino_acid
+        self._wild_type_amino_acid = wild_type_amino_acid
+        self._variant_amino_acid = variant_amino_acid
         self._pssm_paths_by_chain = pssm_paths_by_chain
         self._variant_class = variant_class
 
@@ -61,14 +65,19 @@ class PdbVariantSelection:
         return self._residue_number
 
     @property
-    def amino_acid(self):
-        return self._amino_acid
+    def wild_type_amino_acid(self):
+        return self._wild_type_amino_acid
+
+    @property
+    def variant_amino_acid(self):
+        return self._variant_amino_acid
 
     def __eq__(self, other):
         return self._pdb_path == other._pdb_path and \
                self._chain_id == other._chain_id and \
                self._residue_number == other._residue_number and \
-               self._amino_acid == other._amino_acid and \
+               self._wild_type_amino_acid == other._wild_type_amino_acid and \
+               self._variant_amino_acid == other._variant_amino_acid and \
                self._pssm_paths_by_chain == other._pssm_paths_by_chain and \
                self._variant_class == other._variant_class
 
@@ -76,7 +85,8 @@ class PdbVariantSelection:
         s = "pdb=%s;" % self._pdb_path + \
             "chain=%s;" % self._chain_id + \
             "residue_number=%s;" % self._residue_number + \
-            "amino_acid=%s;" % self._amino_acid
+            "wild_type_amino_acid=%s;" % self._wild_type_amino_acid + \
+            "variant_amino_acid=%s;" % self._variant_amino_acid
 
         if self._pssm_paths_by_chain is not None:
             for chain_id, path in self._pssm_paths_by_chain.items():
@@ -88,7 +98,7 @@ class PdbVariantSelection:
         return hash(s)
 
     def __repr__(self):
-        return "{}:{}:{}->{}".format(self._pdb_path, self._chain_id, self._residue_number, self._amino_acid)
+        return "{}:{}:{}:{}->{}".format(self._pdb_path, self._chain_id, self._residue_number, self._wild_type_amino_acid, self._variant_amino_acid)
 
     @property
     def variant_class(self):

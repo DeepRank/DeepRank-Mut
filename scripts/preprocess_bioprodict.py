@@ -140,6 +140,9 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
             pdb_ac = variant_row["pdb_structure"]
             protein_core_identity = variant_row["protein_core_identity"]
 
+            if len(pdb_ac) != 5:
+                raise ValueError("No valid pdb accession in variant row: {}".format(variant_row))
+
 #            # filter by core identity
 #            if protein_core_identity < 70.0:
 #                continue
@@ -178,7 +181,9 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
                             continue
 
                         # Convert variant to deeprank format:
-                        o = PdbVariantSelection(pdb_path, chain_id, pdb_number, AA_codes_3to1[var_amino_acid_code],
+                        o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+                                                AA_codes_3to1[wt_amino_acid_code],
+                                                AA_codes_3to1[var_amino_acid_code],
                                                 pssm_paths, variant_class)
                         objects.add(o)
                     else:

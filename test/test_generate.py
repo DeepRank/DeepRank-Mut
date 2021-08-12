@@ -40,7 +40,7 @@ def test_generate():
     target_names = ["test.target.target1"]
 
     pdb_path = "test/101m.pdb"
-    variants = [PdbVariantSelection(pdb_path, 'A', 25, 'A')]
+    variants = [PdbVariantSelection(pdb_path, 'A', 25, 'G', 'A')]
 
     tmp_dir = mkdtemp()
     try:

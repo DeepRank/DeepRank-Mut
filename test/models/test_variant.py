@@ -8,9 +8,10 @@ def test_instance():
     pdb_path = "1AK4/decoys/1AK4_cm-it0_745.pdb"
     chain_id = "A"
     residue_number = 10
-    amino_acid = "Q"
+    wt_amino_acid = "A"
+    var_amino_acid = "Q"
 
-    selection = PdbVariantSelection(pdb_path, chain_id, residue_number, amino_acid)
+    selection = PdbVariantSelection(pdb_path, chain_id, residue_number, wt_amino_acid, var_amino_acid)
 
     eq_(selection.chain_id, chain_id)
 
@@ -22,8 +23,8 @@ def test_instance():
 
 
 def test_hash():
-    variant1 = PdbVariantSelection("1AK4/decoys/1AK4_cm-it0_745.pdb", "A", 10, "Q", {"A": "test/1AK4/pssm/1AK4.PSSM"})
-    variant2 = PdbVariantSelection("110M.pdb", "A", 25, "M", {"A": "110M.pssm"})
+    variant1 = PdbVariantSelection("1AK4/decoys/1AK4_cm-it0_745.pdb", "A", 10, "I", "Q", {"A": "test/1AK4/pssm/1AK4.PSSM"})
+    variant2 = PdbVariantSelection("110M.pdb", "A", 25, "G", "M", {"A": "110M.pssm"})
 
     dictionary = {variant1: 1, variant2: 2}
 

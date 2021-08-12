@@ -30,7 +30,7 @@ from deeprank.generate import DataGenerator
 from deeprank.generate.GridTools import GridTools
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1, AA_codes_1to3
-from deeprank.features.neighbour_profile import WT_FEATURE_NAME, MUT_FEATURE_NAME, get_wild_type_amino_acid
+from deeprank.features.neighbour_profile import WT_FEATURE_NAME, VAR_FEATURE_NAME
 from deeprank.operate.conservation import get_conservation_from_bioprodict
 from deeprank.operate.hdf5data import load_variant
 from deeprank.operate.pdb import get_atoms
@@ -70,8 +70,11 @@ def annotate_conservation(conservation_dataframe, pdb_dataframe, data_generator)
             data_generator (DataGenerator): the deeprank data generator
     """
 
+    logger.info("annotate conservation data for {}".format(data_generator.hdf5))
+
     with h5py.File(data_generator.hdf5, 'a') as f5:
         for variant_key in f5:
+            logger.info("annotate conservation data for {}".format(variant_key))
 
             variant_group = f5[variant_key]
             variant = load_variant(variant_group)
@@ -80,26 +83,37 @@ def annotate_conservation(conservation_dataframe, pdb_dataframe, data_generator)
             chain_id = variant.chain_id
             chain_conservation_data = get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_accession_code, chain_id)
 
-            wt = get_wild_type_amino_acid(variant)
-            mut = variant.amino_acid
-
-            residue = Residue(variant.residue_number, AA_codes_1to3[wt], variant.chain_id)
-
             db = pdb2sql(variant.pdb_path)
             try:
                 atoms = get_atoms(db)
+                if len(atoms) == 0:
+                    logger.error("no atoms for {}".format(variant.pdb_path))
+
             finally:
                 db._close()
 
-            c_alpha = [atom for atom in atoms if atom.residue == residue and atom.name == "CA"][0]
+            c_alpha = [atom for atom in atoms if atom.residue.number == variant.residue_number and
+                                                 atom.chain_id == variant.chain_id and atom.name == "CA"][0]
             position = c_alpha.position
+            residue = c_alpha.residue
 
-            wt_data = numpy.array(list(position) + [chain_conservation_data[residue][wt]])
-            mut_data = numpy.array(list(position) + [chain_conservation_data[residue][mut]])
+            wt = variant.wild_type_amino_acid
+            var = variant.variant_amino_acid
+
+            if residue not in chain_conservation_data:
+                logger.error("{} is not in the conservation data, candidates are: {}"
+                             .format(residue, '\n'.join([str(r) for r in chain_conservation_data.keys()])))
+                del f5[variant_key]
+
+                continue
+
+            wt_data = numpy.array([list(position) + [chain_conservation_data[residue][wt]]])
+            var_data = numpy.array([list(position) + [chain_conservation_data[residue][var]]])
 
             feature_group = variant_group.require_group("features")
-            feature_group.create_dataset(WT_FEATURE_NAME, wt_data)
-            feature_group.create_dataset(MUT_FEATURE_NAME, mut_data)
+
+            feature_group.create_dataset(WT_FEATURE_NAME, data=wt_data)
+            feature_group.create_dataset(VAR_FEATURE_NAME, data=var_data)
 
 
 def preprocess(conservation_dataframe, pdb_dataframe, variants, hdf5_path, data_augmentation, grid_info):
@@ -121,16 +135,6 @@ def preprocess(conservation_dataframe, pdb_dataframe, variants, hdf5_path, data_
     annotate_conservation(conservation_dataframe, pdb_dataframe, data_generator)
 
     data_generator.map_features(grid_info)
-
-
-def residue_exists_as(pdb_path, chain_id, residue_number, residue_name):
-    db = pdb2sql(pdb_path)
-    try:
-        names = db.get('resName', resSeq=residue_number, chainID=chain_id)
-
-        return residue_name in names
-    finally:
-        db._close()
 
 
 # in conservation table:
@@ -209,29 +213,24 @@ def get_variant_data(class_table, variant_table, conservation_table, pdb_table, 
                 pdb_residues = pdb_rows.where(pdb_rows.alignment_position == alignment_position).dropna()
 
                 for pdb_residue_index, pdb_residue in pdb_residues.iterrows():
-                    pdb_number = int(pdb_residue['pdb_residuenumber'])  # convert from float to int
+                    pdb_number = int(pdb_residue['pdbnumber'])  # convert from float to int
 
                     # split up the pdb accession code into an entry and a chain id
                     chain_id = pdb_ac[4]
                     pdb_ac = pdb_ac[:4]
 
                     logger.debug("encountered {} ({}), mapped to {}-{} residue {}, with core identity {}"
-                               .format(variant, variant_class.name, pdb_ac, chain_id, pdb_number, protein_core_identity))
+                                 .format(variant, variant_class.name, pdb_ac, chain_id, pdb_number, protein_core_identity))
 
                     pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-                    if residue_exists_as(pdb_path, chain_id, pdb_number, wt_amino_acid_code):
 
-                        logger.info("{} {} exists in {}".format(chain_id, pdb_number, pdb_path))
+                    pssm_paths = {}  # we take this from the bio-prodict files
 
-                        pssm_paths = {}  # we take this from the bio-prodict files
-
-                        # Convert variant to deeprank format:
-                        o = PdbVariantSelection(pdb_path, chain_id, pdb_number, AA_codes_3to1[var_amino_acid_code],
-                                                pssm_paths, variant_class)
-                        objects.add(o)
-                        return list(objects)
-                    else:
-                        logger.warning("no such residue: {} {} {} {}".format(pdb_path, chain_id, pdb_number, wt_amino_acid_code))
+                    # Convert variant to deeprank format:
+                    o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+                                            AA_codes_3to1[wt_amino_acid_code], AA_codes_3to1[var_amino_acid_code],
+                                            pssm_paths, variant_class)
+                    objects.add(o)
 
     return list(objects)
 
@@ -288,7 +287,7 @@ if __name__ == "__main__":
 
     variants = get_variant_data(class_table, variant_table, conservation_table, pdb_table, args.pdb_root, args.pssm_root)
 
-    #variants = get_subset(variants)
+    variants = get_subset(variants)
 
     try:
         preprocess(conservation_table, pdb_table, variants, args.out_path, args.data_augmentation, grid_info)
