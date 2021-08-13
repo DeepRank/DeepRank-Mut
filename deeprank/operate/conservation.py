@@ -48,7 +48,12 @@ def get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_
     conservation_table = {}
     for index, row in conservation_dataframe.loc[accession_code].iterrows():
         sequence_number = row["sequence_residue_number"]
-        amino_acid = AA_codes_1to3[row["amino_acid"]]
+
+        if row["amino_acid"] in AA_codes_1to3:
+            amino_acid = AA_codes_1to3[row["amino_acid"]]
+        else:
+            amino_acid = "XXX"
+
         pdb_number = pdb_translation[sequence_number]
 
         residue_id = Residue(int(pdb_number), amino_acid, pdb_chain_id)
