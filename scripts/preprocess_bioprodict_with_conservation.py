@@ -74,46 +74,50 @@ def annotate_conservation(conservation_dataframe, pdb_dataframe, data_generator)
 
     with h5py.File(data_generator.hdf5, 'a') as f5:
         for variant_key in f5:
-            logger.info("annotate conservation data for {}".format(variant_key))
-
-            variant_group = f5[variant_key]
-            variant = load_variant(variant_group)
-            pdb_accession_code = os.path.splitext(os.path.basename(variant.pdb_path))[0][-4:]
-
-            chain_id = variant.chain_id
-            chain_conservation_data = get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_accession_code, chain_id)
-
-            db = pdb2sql(variant.pdb_path)
             try:
-                atoms = get_atoms(db)
-                if len(atoms) == 0:
-                    logger.error("no atoms for {}".format(variant.pdb_path))
+                logger.info("annotate conservation data for {}".format(variant_key))
 
-            finally:
-                db._close()
+                variant_group = f5[variant_key]
+                variant = load_variant(variant_group)
+                pdb_accession_code = os.path.splitext(os.path.basename(variant.pdb_path))[0][-4:]
 
-            c_alpha = [atom for atom in atoms if atom.residue.number == variant.residue_number and
-                                                 atom.chain_id == variant.chain_id and atom.name == "CA"][0]
-            position = c_alpha.position
-            residue = c_alpha.residue
+                chain_id = variant.chain_id
+                chain_conservation_data = get_conservation_from_bioprodict(pdb_dataframe, conservation_dataframe, pdb_accession_code, chain_id)
 
-            wt = variant.wild_type_amino_acid
-            var = variant.variant_amino_acid
+                db = pdb2sql(variant.pdb_path)
+                try:
+                    atoms = get_atoms(db)
+                    if len(atoms) == 0:
+                        logger.error("no atoms for {}".format(variant.pdb_path))
 
-            if residue not in chain_conservation_data:
-                logger.error("{} is not in the conservation data, candidates are: {}"
-                             .format(residue, '\n'.join([str(r) for r in chain_conservation_data.keys()])))
-                del f5[variant_key]
+                finally:
+                    db._close()
 
+                c_alpha = [atom for atom in atoms if atom.residue.number == variant.residue_number and
+                                                     atom.chain_id == variant.chain_id and atom.name == "CA"][0]
+                position = c_alpha.position
+                residue = c_alpha.residue
+
+                wt = variant.wild_type_amino_acid
+                var = variant.variant_amino_acid
+
+                if residue not in chain_conservation_data:
+                    logger.error("{} is not in the conservation data, candidates are: {}"
+                                 .format(residue, '\n'.join([str(r) for r in chain_conservation_data.keys()])))
+                    del f5[variant_key]
+
+                    continue
+
+                wt_data = numpy.array([list(position) + [chain_conservation_data[residue][wt]]])
+                var_data = numpy.array([list(position) + [chain_conservation_data[residue][var]]])
+
+                feature_group = variant_group.require_group("features")
+
+                feature_group.create_dataset(WT_FEATURE_NAME, data=wt_data)
+                feature_group.create_dataset(VAR_FEATURE_NAME, data=var_data)
+            except:
+                logger.error(traceback.format_exc())
                 continue
-
-            wt_data = numpy.array([list(position) + [chain_conservation_data[residue][wt]]])
-            var_data = numpy.array([list(position) + [chain_conservation_data[residue][var]]])
-
-            feature_group = variant_group.require_group("features")
-
-            feature_group.create_dataset(WT_FEATURE_NAME, data=wt_data)
-            feature_group.create_dataset(VAR_FEATURE_NAME, data=var_data)
 
 
 def preprocess(conservation_dataframe, pdb_dataframe, variants, hdf5_path, data_augmentation, grid_info):
