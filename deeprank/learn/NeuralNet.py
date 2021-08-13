@@ -475,7 +475,7 @@ class NeuralNet():
 
         self.data_set.transform = self.state['transform']
         self.data_set.proj2D = self.state['proj2D']
-        self.data_set.target_ordering = self.state['target_ordering']
+        #self.data_set.target_ordering = self.state['target_ordering']
         self.data_set.clip_features = self.state['clip_features']
         self.data_set.clip_factor = self.state['clip_factor']
         self.data_set.grid_shape = self.state['grid_shape']
