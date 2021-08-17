@@ -19,7 +19,8 @@ def test_instance():
 
     eq_(selection.pdb_path, pdb_path)
 
-    eq_(selection.amino_acid, amino_acid)
+    eq_(selection.wild_type_amino_acid, wt_amino_acid)
+    eq_(selection.variant_amino_acid, var_amino_acid)
 
 
 def test_hash():
