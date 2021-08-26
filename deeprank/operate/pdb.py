@@ -35,13 +35,18 @@ def get_atoms(pdb2sql):
     atoms = []
 
     # Iterate over the atom output from pdb2sql
-    for x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name in \
-            pdb2sql.get("x,y,z,rowID,name,element,chainID,resSeq,resName"):
+    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName"
+    for row in pdb2sql.get(request_s):
+
+        try:
+            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name = row
+        except:
+            raise ValueError("Got unexpected row {} for {}".format(row, request_s))
 
         # Make sure that the residue is in the working directory:
         residue_id = (chain_id, residue_number)
         if residue_id not in residues:
-            residues[residue_id] = Residue(residue_number, residue_name, chain_id)
+            residues[residue_id] = Residue(int(residue_number), residue_name, chain_id)
 
         # Turn the x,y,z into a vector:
         atom_position = numpy.array([x, y, z])

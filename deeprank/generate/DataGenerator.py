@@ -70,7 +70,8 @@ class DataGenerator(object):
             >>> variant = PdbVariantSelection(pdb_path="1AK4.pdb",
             >>>                               chain_id="C",
             >>>                               residue_number=10,
-            >>>                               amino_acid="T",
+            >>>                               wild_type_amino_acid="I",
+            >>>                               variant_amino_acid="T",
             >>>                               pssm_paths_by_chain={"C": "pssm_new/1AK4.C.pssm",
             >>>                                                    "D": "pssm_new/1AK4.D.pssm"},
             >>>                               variant_class=VariantClass.BENIGN)

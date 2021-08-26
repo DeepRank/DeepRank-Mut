@@ -37,7 +37,7 @@ def test_learn():
        'atomic_densities': atomic_densities,
     }
 
-    variant = PdbVariantSelection(pdb_path, "A", 10, "C", pssm_paths)
+    variant = PdbVariantSelection(pdb_path, "A", 10, "V", "C", pssm_paths)
 
     work_dir_path = mkdtemp()
     try:

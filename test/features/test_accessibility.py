@@ -34,7 +34,7 @@ def test_compute_feature():
         with h5py.File(hdf5_path, 'w') as f5:
             feature_group = f5.require_group("features")
             raw_feature_group = f5.require_group("raw_features")
-            variant = PdbVariantSelection(pdb_path, 'A', 17, 'T')
+            variant = PdbVariantSelection(pdb_path, 'A', 17, 'V', 'T')
 
             __compute_feature__(variant.pdb_path, feature_group, raw_feature_group, variant)
 
