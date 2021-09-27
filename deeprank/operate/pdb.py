@@ -6,6 +6,19 @@ from deeprank.models.residue import Residue
 from deeprank.config import logger
 
 
+def get_squared_distance(position1, position2):
+    """ Get the squared euclidean distance between two positions in space.
+        (which is faster to compute than the distance)
+
+        Args:
+            position1 (numpy vector): first position
+            position2 (numpy vector): second position
+
+        Returns (float): the squared distance
+    """
+
+    return numpy.sum(numpy.square(position1 - position2))
+
 def get_distance(position1, position2):
     """ Get euclidean distance between two positions in space.
 
@@ -16,7 +29,7 @@ def get_distance(position1, position2):
         Returns (float): the distance
     """
 
-    return numpy.sqrt(numpy.sum(numpy.square(position1 - position2)))
+    return numpy.sqrt(get_squared_distance(position1, position2))
 
 
 def get_atoms(pdb2sql):
@@ -71,6 +84,9 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, max_intera
         Returns ([Pair(int, int)]): pairs of atom numbers that contact each other
     """
 
+    # to compare the squared distances to:
+    squared_max_interatomic_distance = numpy.square(max_interatomic_distance)
+
     # get all the atoms in the pdb file:
     atoms = get_atoms(pdb2sql)
 
@@ -93,7 +109,7 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, max_intera
         for residue_atom in residue_atoms:
 
             # Check that the atom is close enough:
-            if get_distance(atom.position, residue_atom.position) < max_interatomic_distance:
+            if get_squared_distance(atom.position, residue_atom.position) < squared_max_interatomic_distance:
 
                 contact_atom_pairs.add(Pair(residue_atom, atom))
 
