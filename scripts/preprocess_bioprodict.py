@@ -160,7 +160,8 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
 
         pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
         if len(pssm_paths) == 0:
-            _log.warning("no pssms for: {}, continuing ..".format(pdb_ac))
+            _log.warning("no pssms for: {}".format(pdb_ac))
+            continue
 
         _log.info("add variant on {} {} {} {}->{} = {}"
                   .format(pdb_path, chain_id, pdb_number,
