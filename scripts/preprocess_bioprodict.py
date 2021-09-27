@@ -29,7 +29,7 @@ from deeprank.config import logger
 from deeprank.generate import DataGenerator
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
-
+from deeprank.domain.amino_acid import amino_acids
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -45,6 +45,7 @@ arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of ea
 
 
 logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
+_log = logging.getLogger(__name__)
 
 
 mpi_comm = MPI.COMM_WORLD
@@ -106,88 +107,71 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         Raises (ValueError): if data is inconsistent
     """
 
+    amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
+
     class_table = pandas.read_parquet(parq_path)
-    variant_table = pandas.read_hdf(hdf5_path, "variants")
-    conservation_table = pandas.read_hdf(hdf5_path, "conservation")
-    pdb_table = pandas.read_hdf(hdf5_path, "pdbs")
+    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
 
     objects = set([])
 
-    # Iterate over all variants in the parq file:
-    for variant, variant_class in class_table['class'].items():
-
-        variant = variant.split('.')[1]
-        enst_ac = variant[:15]
-        swap = variant[15:]
-
-        wt_amino_acid_code = swap[:3]
-        residue_number = int(swap[3: -3])
-        var_amino_acid_code = swap[-3:]
+    # Get all variants in the parq file:
+    variant_classes = {}
+    for variant_name, variant_class in class_table['class'].items():
+        variant_name = variant_name.split('.')[1]
 
         # Convert class to deeprank format (0: benign, 1: pathogenic):
         if variant_class == 0.0:
             variant_class = VariantClass.BENIGN
+
         elif variant_class == 1.0:
             variant_class = VariantClass.PATHOGENIC
         else:
             raise ValueError("Unknown class: {}".format(variant_class))
 
-        # Iterate over HDF5 table variants, associated with the variant from the parq file (mapped to the ENST code):
-        for variant_index, variant_row in variant_table.where(variant_table.ENST == enst_ac).dropna().iterrows():
+        variant_classes[variant_name] = variant_class
 
-            # Get associated uniprot and pdb entries:
-            uniprot_ac = variant_row["accession"]
-            pdb_ac = variant_row["pdb_structure"]
-            protein_core_identity = variant_row["protein_core_identity"]
+    # Get all mappings to pdb and use them to create variant objects:
+    objects = set([])
+    for variant_index, variant_row in mappings_table.iterrows():
 
-            if len(pdb_ac) != 5:
-                raise ValueError("No valid pdb accession in variant row: {}".format(variant_row))
+        variant_name = variant_row["variant"]
+        if variant_name not in variant_classes:
+            _log.warning("no such variant: {}".format(variant_name))
+            continue
 
-#            # filter by core identity
-#            if protein_core_identity < 70.0:
-#                continue
+        variant_class = variant_classes[variant_name]
 
-            # filter by uniprot accession code
-            protein_rows = conservation_table.loc[uniprot_ac]
+        enst_ac = variant_name[:15]
+        swap = variant_name[15:]
+        wt_amino_acid_code = swap[:3]
+        residue_number = int(swap[3: -3])
+        var_amino_acid_code = swap[-3:]
 
-            # filter by variant sequence residue number
-            alignment_positions = protein_rows.where(protein_rows.sequence_residue_number == residue_number)['alignment_position'].dropna()
+        pdb_ac = variant_row["pdb_structure"]
+        pdb_number = int(variant_row["pdbnumber"])
 
-            # Iterate over the residues that match the variant (usually just one):
-            for alignment_position in alignment_positions:
+        chain_id = pdb_ac[4]
+        pdb_ac = pdb_ac[:4]
 
-                # filter by pdb accession code
-                pdb_rows = pdb_table.loc[pdb_ac]
+        pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
+        if not os.path.isfile(pdb_path):
+            _log.warning("no such pdb: {}".format(pdb_path))
+            continue
 
-                # filter by alignment position
-                pdb_numbers = pdb_rows.where(pdb_rows.alignment_position == alignment_position)["pdbnumber"].dropna()
+        pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
+        if len(pssm_paths) == 0:
+            _log.warning("no pssms for: {}, continuing ..".format(pdb_ac))
 
-                for pdb_number in pdb_numbers:
-                    pdb_number = int(pdb_number)  # convert from float to int
+        _log.info("add variant on {} {} {} {}->{} = {}"
+                  .format(pdb_path, chain_id, pdb_number,
+                          wt_amino_acid_code, var_amino_acid_code,
+                          variant_class))
 
-                    # split up the pdb accession code into an entry and a chain id
-                    chain_id = pdb_ac[4]
-                    pdb_ac = pdb_ac[:4]
-
-                    logger.debug("encountered {} ({}), mapped to {}-{} residue {}, with core identity {}"
-                               .format(variant, variant_class.name, pdb_ac, chain_id, pdb_number, protein_core_identity))
-
-                    pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-                    if os.path.isfile(pdb_path):
-
-                        pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
-                        if len(pssm_paths) == 0:
-                            logger.warning("no pssms for: {}".format(pdb_ac))
-                            continue
-
-                        # Convert variant to deeprank format:
-                        o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
-                                                AA_codes_3to1[wt_amino_acid_code],
-                                                AA_codes_3to1[var_amino_acid_code],
-                                                pssm_paths, variant_class)
-                        objects.add(o)
-                    else:
-                        logger.warning("no such pdb: {}".format(pdb_path))
+        o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+                                amino_acids_by_code[wt_amino_acid_code],
+                                amino_acids_by_code[var_amino_acid_code],
+                                pssm_paths, variant_class)
+        objects.add(o)
 
     return list(objects)
 

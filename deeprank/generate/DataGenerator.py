@@ -66,12 +66,13 @@ class DataGenerator(object):
 
             >>> from deeprank.generate import *
             >>> from deeprank.models.variant import *
+            >>> from deeprank.domain.amino_acid import *
             >>> # sources to assemble the data base
             >>> variant = PdbVariantSelection(pdb_path="1AK4.pdb",
             >>>                               chain_id="C",
             >>>                               residue_number=10,
-            >>>                               wild_type_amino_acid="I",
-            >>>                               variant_amino_acid="T",
+            >>>                               wild_type_amino_acid=isoleucine,
+            >>>                               variant_amino_acid=valine,
             >>>                               pssm_paths_by_chain={"C": "pssm_new/1AK4.C.pssm",
             >>>                                                    "D": "pssm_new/1AK4.D.pssm"},
             >>>                               variant_class=VariantClass.BENIGN)

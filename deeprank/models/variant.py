@@ -85,8 +85,8 @@ class PdbVariantSelection:
         s = "pdb=%s;" % self._pdb_path + \
             "chain=%s;" % self._chain_id + \
             "residue_number=%s;" % self._residue_number + \
-            "wild_type_amino_acid=%s;" % self._wild_type_amino_acid + \
-            "variant_amino_acid=%s;" % self._variant_amino_acid
+            "wild_type_amino_acid=%s;" % self._wild_type_amino_acid.name + \
+            "variant_amino_acid=%s;" % self._variant_amino_acid.name
 
         if self._pssm_paths_by_chain is not None:
             for chain_id, path in self._pssm_paths_by_chain.items():

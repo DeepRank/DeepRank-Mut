@@ -4,7 +4,7 @@ import numpy
 
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.tools import sparse
-
+from deeprank.domain.amino_acid import amino_acids
 
 def get_variant_group_name(variant):
     """
@@ -35,8 +35,8 @@ def store_variant(variant_group, variant):
 
     variant_group.attrs['variant_residue_number'] = variant.residue_number
 
-    variant_group.attrs['variant_amino_acid'] = variant.variant_amino_acid
-    variant_group.attrs['wild_type_amino_acid'] = variant.wild_type_amino_acid
+    variant_group.attrs['variant_amino_acid_name'] = variant.variant_amino_acid.name
+    variant_group.attrs['wild_type_amino_acid_name'] = variant.wild_type_amino_acid.name
 
 
 def load_variant(variant_group):
@@ -60,8 +60,10 @@ def load_variant(variant_group):
 
     residue_number = variant_group.attrs['variant_residue_number']
 
-    variant_amino_acid = variant_group.attrs['variant_amino_acid']
-    wild_type_amino_acid = variant_group.attrs['wild_type_amino_acid']
+    amino_acids_by_name = {amino_acid.name: amino_acid for amino_acid in amino_acids}
+
+    variant_amino_acid = amino_acids_by_name[variant_group.attrs['variant_amino_acid_name']]
+    wild_type_amino_acid = amino_acids_by_name[variant_group.attrs['wild_type_amino_acid_name']]
 
     variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain)
 

@@ -82,8 +82,8 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     c_alpha_position = get_c_alpha_pos(variant)
     wild_type_code = get_wild_type_amino_acid(variant)
     residue_id = Residue(variant.residue_number, wild_type_code, variant.chain_id)
-    wild_type_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.wild_type_amino_acid])
-    variant_probability = pssm.get_probability(residue_id, AA_codes_1to3[variant.variant_amino_acid])
+    wild_type_probability = pssm.get_probability(residue_id, variant.wild_type_amino_acid.code)
+    variant_probability = pssm.get_probability(residue_id, variant.variant_amino_acid.code)
     xyz_key = tuple(c_alpha_position)
 
     feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wild_type_probability]}
