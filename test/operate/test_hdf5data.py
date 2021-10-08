@@ -6,13 +6,14 @@ import numpy
 import h5py
 from nose.tools import eq_, ok_
 
+from deeprank.domain.amino_acid import amino_acids
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.operate import hdf5data
 
 
 def test_group_name():
-    variant1 = PdbVariantSelection("not/existent/pdb.1", 'A', 111, 'A', 'M', {'A': 'not/existent/pssm.A.1'})
-    variant2 = PdbVariantSelection("not/existent/pdb.2", 'A', 22, 'A', 'W', {'A': 'not/existent/pssm.A.2'})
+    variant1 = PdbVariantSelection("not/existent/pdb.1", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A.1'})
+    variant2 = PdbVariantSelection("not/existent/pdb.2", 'A', 22, amino_acids[0], amino_acids[2], {'A': 'not/existent/pssm.A.2'})
 
     ok_(hdf5data.get_variant_group_name(variant1) != hdf5data.get_variant_group_name(variant2))
     eq_(hdf5data.get_variant_group_name(variant1), hdf5data.get_variant_group_name(variant1))
@@ -20,7 +21,7 @@ def test_group_name():
 
 
 def test_variant():
-    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, 'A', 'M', {'A': 'not/existent/pssm.A'})
+    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A'})
 
     temp_dir_path = mkdtemp()
     try:
@@ -33,6 +34,7 @@ def test_variant():
             end_variant = hdf5data.load_variant(group)
 
             eq_(start_variant, end_variant)
+            eq_(hash(start_variant), hash(end_variant))
     finally:
         rmtree(temp_dir_path)
 
