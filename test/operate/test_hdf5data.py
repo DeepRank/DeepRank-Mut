@@ -7,7 +7,7 @@ import h5py
 from nose.tools import eq_, ok_
 
 from deeprank.domain.amino_acid import amino_acids
-from deeprank.models.variant import PdbVariantSelection
+from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.operate import hdf5data
 
 
@@ -21,7 +21,7 @@ def test_group_name():
 
 
 def test_variant():
-    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A'})
+    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A'}, VariantClass.BENIGN)
 
     temp_dir_path = mkdtemp()
     try:
