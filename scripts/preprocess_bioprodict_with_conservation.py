@@ -32,6 +32,7 @@ from deeprank.config.chemicals import AA_codes_3to1
 from deeprank.domain.amino_acid import amino_acids
 from deeprank.operate.hdf5data import load_variant
 from deeprank.operate.pdb import get_atoms
+from deeprank.features.neighbour_profile import WT_FEATURE_NAME, VAR_FEATURE_NAME
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
 arg_parser.add_argument("variant_path", help="the path to the (dataset) variant parquet file")
@@ -84,7 +85,7 @@ def add_conservation(conservations, output_hdf5):
         for variant_group_name in f5.keys():
             variant_group = f5[variant_group_name]
             variant = load_variant(variant_group)
-            if variant in conservation:
+            if variant in conservations:
                 wt = variant.wild_type_amino_acid
                 var = variant.variant_amino_acid
 
@@ -94,14 +95,14 @@ def add_conservation(conservations, output_hdf5):
                     if len(atoms) == 0:
                         logger.error("no atoms for {}".format(variant.pdb_path))
                 finally:
-                    db._close()
+                    pdb._close()
 
                 c_alpha = [atom for atom in atoms if atom.residue.number == variant.residue_number and 
                                                      atom.chain_id == variant.chain_id and atom.name == "CA"][0]
                 position = c_alpha.position
 
-                wt_data = numpy.array([list(position) + [conservation[variant][wt]]])
-                var_data = numpy.array([list(position) + [conservation[variant][var]]])
+                wt_data = numpy.array([list(position) + [conservations[variant][wt]]])
+                var_data = numpy.array([list(position) + [conservations[variant][var]]])
 
                 feature_group = variant_group.require_group("features")
 
@@ -110,8 +111,8 @@ def add_conservation(conservations, output_hdf5):
                 feature_group.create_dataset(WT_FEATURE_NAME, data=wt_data)
                 feature_group.create_dataset(VAR_FEATURE_NAME, data=var_data)
             else:
-                _log.warning("deleting {} because there's no conservation".format(variant_group_name))
-                del variant_group
+                _log.warning("deleting {} ({}) because there's no conservation".format(variant_group_name, variant))
+                del f5[variant_group_name]
 
 
 # in conservation table:
@@ -160,7 +161,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
 
     protein_variants = {}
 
-    for variant_index, variant_row in mappings_table.iterrows():
+    for _, variant_row in mappings_table.iterrows():
 
         variant_name = variant_row["variant"]
         if variant_name not in variant_classes:
@@ -186,11 +187,6 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
             _log.warning("no such pdb: {}".format(pdb_path))
             continue
 
-        pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
-        if len(pssm_paths) == 0:
-            _log.warning("no pssms for: {}".format(pdb_ac))
-            continue
-
         _log.info("add variant on {} {} {} {}->{} = {}"
                   .format(pdb_path, chain_id, pdb_number,
                           wt_amino_acid_code, var_amino_acid_code,
@@ -201,21 +197,17 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
                                 amino_acids_by_code[wt_amino_acid_code],
                                 amino_acids_by_code[var_amino_acid_code],
-                                pssm_paths, variant_class)
+                                {}, variant_class)
         objects.add(o)
 
         protein_variants[(protein_ac, residue_number)] = o
-
-        # for testing
-        if len(objects) > 1000:
-            break
 
     conservations = {}
     protein_ac = None
     prev_ac = None
     residue_number = None
     conservation_table = pandas.read_hdf(hdf5_path, "conservation")
-    for conservation_index, conservation_row in conservation_table.iterrows():
+    for _, conservation_row in conservation_table.iterrows():
         protein_ac = conservation_row['accession']
         if protein_ac != prev_ac:
             residue_number = 1
@@ -226,12 +218,13 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         if key in protein_variants:
             variant = protein_variants[key]
 
+            _log.debug("conservation for {}".format(variant))
             conservations[variant] = {amino_acid: conservation_row["sub_consv_{}".format(amino_acid.letter)]
                                       for amino_acid in amino_acids}
 
         prev_ac = protein_ac
 
-    return list(objects), conservations
+    return objects, conservations
 
 
 def get_subset(variants):
