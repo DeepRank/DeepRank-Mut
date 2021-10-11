@@ -1,6 +1,7 @@
 from nose.tools import eq_, ok_
 
 from deeprank.models.variant import PdbVariantSelection
+from deeprank.domain.amino_acid import isoleucine, glutamine, glycine, methionine
 
 
 def test_instance():
@@ -24,8 +25,8 @@ def test_instance():
 
 
 def test_hash():
-    variant1 = PdbVariantSelection("1AK4/decoys/1AK4_cm-it0_745.pdb", "A", 10, "I", "Q", {"A": "test/1AK4/pssm/1AK4.PSSM"})
-    variant2 = PdbVariantSelection("110M.pdb", "A", 25, "G", "M", {"A": "110M.pssm"})
+    variant1 = PdbVariantSelection("1AK4/decoys/1AK4_cm-it0_745.pdb", "A", 10, isoleucine, glutamine, {"A": "test/1AK4/pssm/1AK4.PSSM"})
+    variant2 = PdbVariantSelection("110M.pdb", "A", 25, glycine, methionine, {"A": "110M.pssm"})
 
     dictionary = {variant1: 1, variant2: 2}
 

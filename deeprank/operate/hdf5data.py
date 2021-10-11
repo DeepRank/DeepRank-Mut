@@ -35,6 +35,9 @@ def store_variant(variant_group, variant):
 
     variant_group.attrs['variant_residue_number'] = variant.residue_number
 
+    if variant.insertion_code is not None:
+        variant_group.attrs['variant_insertion_code'] = variant.insertion_code
+
     variant_group.attrs['variant_amino_acid_name'] = variant.variant_amino_acid.name
     variant_group.attrs['wild_type_amino_acid_name'] = variant.wild_type_amino_acid.name
 
@@ -60,12 +63,17 @@ def load_variant(variant_group):
 
     residue_number = variant_group.attrs['variant_residue_number']
 
+    if 'variant_insertion_code' in variant_group.attrs:
+        insertion_code = variant_group.attrs['variant_insertion_code']
+    else:
+        insertion_code = None
+
     amino_acids_by_name = {amino_acid.name: amino_acid for amino_acid in amino_acids}
 
     variant_amino_acid = amino_acids_by_name[variant_group.attrs['variant_amino_acid_name']]
     wild_type_amino_acid = amino_acids_by_name[variant_group.attrs['wild_type_amino_acid_name']]
 
-    variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain)
+    variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain, insertion_code=insertion_code)
 
     return variant
 

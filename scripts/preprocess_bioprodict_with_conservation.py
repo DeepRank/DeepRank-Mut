@@ -177,7 +177,15 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         var_amino_acid_code = swap[-3:]
 
         pdb_ac = variant_row["pdb_structure"]
-        pdb_number = int(variant_row["pdbnumber"])
+
+        pdb_number_string = variant_row["pdbnumber"]
+        if pdb_number_string[-1].isalpha():
+
+            pdb_number = int(pdb_number_string[:-1])
+            insertion_code = pdb_number_string[-1]
+        else:
+            pdb_number = int(pdb_number_string)
+            insertion_code = None
 
         chain_id = pdb_ac[4]
         pdb_ac = pdb_ac[:4]
@@ -197,7 +205,7 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
                                 amino_acids_by_code[wt_amino_acid_code],
                                 amino_acids_by_code[var_amino_acid_code],
-                                {}, variant_class)
+                                {}, variant_class, insertion_code)
         objects.add(o)
 
         protein_variants[(protein_ac, residue_number)] = o

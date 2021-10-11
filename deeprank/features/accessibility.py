@@ -64,7 +64,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
         position = structure.coord(atom_index)
         chain_id = structure.chainLabel(atom_index)
         atom_key = (chain_id.strip(),
-                    int(structure.residueNumber(atom_index)),
+                    structure.residueNumber(atom_index),
                     structure.atomName(atom_index).strip())
 
         logger.debug("atom {}: {}".format(atom_index, atom_key))
