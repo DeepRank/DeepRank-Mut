@@ -21,7 +21,7 @@ def test_group_name():
 
 
 def test_variant():
-    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A'}, VariantClass.BENIGN)
+    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], {'A': 'not/existent/pssm.A'}, VariantClass.BENIGN, 'A')
 
     temp_dir_path = mkdtemp()
     try:

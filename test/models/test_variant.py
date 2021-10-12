@@ -1,7 +1,7 @@
 from nose.tools import eq_, ok_
 
 from deeprank.models.variant import PdbVariantSelection
-from deeprank.domain.amino_acid import isoleucine, glutamine, glycine, methionine
+from deeprank.domain.amino_acid import alanine, isoleucine, glutamine, glycine, methionine
 
 
 def test_instance():
@@ -9,8 +9,8 @@ def test_instance():
     pdb_path = "1AK4/decoys/1AK4_cm-it0_745.pdb"
     chain_id = "A"
     residue_number = 10
-    wt_amino_acid = "A"
-    var_amino_acid = "Q"
+    wt_amino_acid = alanine
+    var_amino_acid = glutamine
 
     selection = PdbVariantSelection(pdb_path, chain_id, residue_number, wt_amino_acid, var_amino_acid)
 
