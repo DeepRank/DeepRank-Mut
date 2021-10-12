@@ -11,6 +11,7 @@ from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.model3d import cnn_reg
+from deeprank.domain.amino_acid import valine, cysteine
 import deeprank.config
 
 
@@ -37,7 +38,7 @@ def test_learn():
        'atomic_densities': atomic_densities,
     }
 
-    variant = PdbVariantSelection(pdb_path, "A", 10, "V", "C", pssm_paths)
+    variant = PdbVariantSelection(pdb_path, "A", 10, valine, cysteine, pssm_paths)
 
     work_dir_path = mkdtemp()
     try:
