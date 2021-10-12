@@ -39,7 +39,10 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
     atoms_keys = set([])
     chain_ids = set([])
     for atom in get_atoms_of_iterest(variant, distance_cutoff):
-        atom_key = (atom.chain_id.strip(), int(atom.residue.number), atom.name.strip())
+        residue_id = str(atom.residue.number)
+        if variant.insertion_code is not None:
+            residue_id += variant.insertion_code
+        atom_key = (atom.chain_id.strip(), residue_id, atom.name.strip())
         atoms_keys.add(atom_key)
         chain_ids.add(atom.chain_id)
 
@@ -64,7 +67,7 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
         position = structure.coord(atom_index)
         chain_id = structure.chainLabel(atom_index)
         atom_key = (chain_id.strip(),
-                    int(structure.residueNumber(atom_index)),
+                    structure.residueNumber(atom_index).strip(),
                     structure.atomName(atom_index).strip())
 
         logger.debug("atom {}: {}".format(atom_index, atom_key))
