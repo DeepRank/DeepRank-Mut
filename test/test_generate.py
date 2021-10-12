@@ -13,6 +13,7 @@ from deeprank.generate import *
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.tools.sparse import FLANgrid
 from deeprank.operate import hdf5data
+from deeprank.domain.amino_acid import glycine, alanine
 
 
 _log = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def test_generate():
     target_names = ["test.target.target1"]
 
     pdb_path = "test/101m.pdb"
-    variants = [PdbVariantSelection(pdb_path, 'A', 25, 'G', 'A')]
+    variants = [PdbVariantSelection(pdb_path, 'A', 25, glycine, alanine)]
 
     tmp_dir = mkdtemp()
     try:
