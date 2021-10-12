@@ -8,6 +8,7 @@ from nose.tools import ok_, eq_
 from deeprank.features.neighbour_profile import (__compute_feature__, get_wild_type_amino_acid,
                                                  IC_FEATURE_NAME, WT_FEATURE_NAME, VAR_FEATURE_NAME)
 from deeprank.models.variant import PdbVariantSelection
+from deeprank.domain.amino_acid import valine, alanine, glycine, tryptophan
 
 
 def test_feature():
@@ -16,7 +17,7 @@ def test_feature():
     try:
         hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
 
-        variant = PdbVariantSelection("test/101M.pdb", "A", 25, "G", "W",
+        variant = PdbVariantSelection("test/101M.pdb", "A", 25, glycine, tryptophan,
                                       {'A': "test/101M.A.pdb.pssm"})
 
         with h5py.File(hdf5_path, 'w') as f5:
@@ -32,6 +33,6 @@ def test_feature():
 
 
 def test_wt():
-    variant = PdbVariantSelection("test/5unf.pdb", "B", 164, "V", "A")
+    variant = PdbVariantSelection("test/5unf.pdb", "B", 164, valine, alanine)
     wt = get_wild_type_amino_acid(variant)
     eq_(wt, "VAL")
