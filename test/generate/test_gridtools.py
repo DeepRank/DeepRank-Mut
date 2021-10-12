@@ -13,6 +13,7 @@ from deeprank.operate import hdf5data
 from deeprank.generate.GridTools import GridTools
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
+from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, unknown_amino_acid
 
 
 _log = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ def test_atomic_contacts_mapping():
     """
 
     pdb_path = "test/101M.pdb"
-    variant = PdbVariantSelection(pdb_path, 'A', 138, 'F', 'Y')
+    variant = PdbVariantSelection(pdb_path, 'A', 138, phenylalanine, tyrosine)
     variant_name = "101M-F138Y"
 
     feature_types = ["vdwaals", "coulomb", "charge"]
@@ -128,7 +129,7 @@ def test_feature_mapping():
             ]:
                f.write(line) 
 
-        variant = PdbVariantSelection(pdb_path, 'A', 1, 'X', 'V')
+        variant = PdbVariantSelection(pdb_path, 'A', 1, unknown_amino_acid, valine)
         variant_name = "1XXX-X1V"
 
         tmp_path = os.path.join(tmp_dir, "test.hdf5")

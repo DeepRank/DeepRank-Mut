@@ -42,6 +42,7 @@ tyrosine_phosphate = AminoAcid("Tyrosine Phosphate", "TYP", "Y")
 tyrosine_sulphate = AminoAcid("Tyrosine Sulphate", "TYS", "Y")
 tyrosine_phosphate = AminoAcid("Tyrosine Phosphate", "PTR", "Y")
 cyclohexane_alanine = AminoAcid("Cyclohexane Alanine", "CHX", "?")
+unknown_amino_acid = AminoAcid("Unknown", "XXX", "X")
 
 
 amino_acids = [alanine, arginine, asparagine, aspartate, cysteine, glutamate, glutamine, glycine,
