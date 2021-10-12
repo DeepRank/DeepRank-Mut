@@ -10,6 +10,7 @@ import numpy
 
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.accessibility import __compute_feature__, FEATURE_NAME
+from deeprank.domain.amino_acid import valine, threonine
 
 
 _log = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def test_compute_feature():
         with h5py.File(hdf5_path, 'w') as f5:
             feature_group = f5.require_group("features")
             raw_feature_group = f5.require_group("raw_features")
-            variant = PdbVariantSelection(pdb_path, 'A', 17, 'V', 'T')
+            variant = PdbVariantSelection(pdb_path, 'A', 17, valine, threonine)
 
             __compute_feature__(variant.pdb_path, feature_group, raw_feature_group, variant)
 
