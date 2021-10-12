@@ -38,7 +38,6 @@ arg_parser = ArgumentParser(description="Preprocess variants from a parquet file
 arg_parser.add_argument("variant_path", help="the path to the (dataset) variant parquet file")
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
-arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -120,14 +119,13 @@ def add_conservation(conservations, output_hdf5):
 # present:  amino_acid  sub_sequencecount  sub_consv_A  sub_consv_B  sub_consv_C  sub_consv_D  ...  sub_consv_V  sub_consv_W  sub_consv_X  sub_consv_Y  sub_consv_Z  sub_consv_gap
 
 
-def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
+def get_variant_data(parq_path, hdf5_path, pdb_root):
     """ Extract data from the dataset and convert to variant objects.
 
         Args:
             parq_path (str): path to the bioprodict parq file, containing the variants
             hdf5_path (str): path to the bioprodict hdf5 file, mapping the variants to pdb entries
             pdb_root (str): path to the directory where the pdb files are located as: pdb????.ent
-            pssm_root (str): path to the directory where the PSSMgen output files are located
 
         Returns (list of PdbVariantSelection objects): the variants in the dataset
         Raises (ValueError): if data is inconsistent
@@ -280,7 +278,7 @@ if __name__ == "__main__":
        'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
     }
 
-    variants, conservations = get_variant_data(args.variant_path, args.map_path, args.pdb_root, args.pssm_root)
+    variants, conservations = get_variant_data(args.variant_path, args.map_path, args.pdb_root)
 
     variants = get_subset(variants)
 
