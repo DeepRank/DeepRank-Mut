@@ -119,6 +119,11 @@ def add_conservation(conservations, output_hdf5):
 # present:  amino_acid  sub_sequencecount  sub_consv_A  sub_consv_B  sub_consv_C  sub_consv_D  ...  sub_consv_V  sub_consv_W  sub_consv_X  sub_consv_Y  sub_consv_Z  sub_consv_gap
 
 
+_VARIANT_NAME_COLUMN = "variant"
+_VARIANT_CLASS_COLUMN = "class"
+_PDB_AC_COLUMN = "pdb_structure"
+_PDB_NUMBER_COLUMN = "pdbnumber"
+
 def get_variant_data(parq_path, hdf5_path, pdb_root):
     """ Extract data from the dataset and convert to variant objects.
 
@@ -139,9 +144,14 @@ def get_variant_data(parq_path, hdf5_path, pdb_root):
     objects = set([])
 
     # Get all variants in the parq file:
+    for column_name in [_VARIANT_NAME_COLUMN, _VARIANT_CLASS_COLUMN]:
+        if column_name not in class_table.columns:
+            raise ValueError("{} has no column named {}".format(parq_path, column_name))
+
     variant_classes = {}
-    for variant_name, variant_class in class_table['class'].items():
-        variant_name = variant_name.split('.')[1]
+    for row_index, row in class_table.iterrows():
+        variant_name = row[_VARIANT_NAME_COLUMN]
+        variant_class = row[_VARIANT_CLASS_COLUMN]
 
         # Convert class to deeprank format (0: benign, 1: pathogenic):
         if variant_class == 0.0:
@@ -155,6 +165,10 @@ def get_variant_data(parq_path, hdf5_path, pdb_root):
         variant_classes[variant_name] = variant_class
 
     # Get all mappings to pdb and use them to create variant objects:
+    for column_name in [_VARIANT_NAME_COLUMN, _PDB_AC_COLUMN, _PDB_NUMBER_COLUMN]:
+        if column_name not in mappings_table.columns:
+            raise ValueError("{}/{} has no column named {}".format(hdf5_path, "mappings", column_name))
+
     objects = set([])
 
     protein_variants = {}
