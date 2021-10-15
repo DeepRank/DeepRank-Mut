@@ -94,6 +94,11 @@ def get_pssm_paths(pssm_root, pdb_ac):
 # present:  amino_acid  sub_sequencecount  sub_consv_A  sub_consv_B  sub_consv_C  sub_consv_D  ...  sub_consv_V  sub_consv_W  sub_consv_X  sub_consv_Y  sub_consv_Z  sub_consv_gap
 
 
+_VARIANT_NAME_COLUMN = "variant"
+_VARIANT_CLASS_COLUMN = "class"
+_PDB_AC_COLUMN = "pdb_structure"
+_PDB_NUMBER_COLUMN = "pdbnumber"
+
 def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
     """ Extract data from the dataset and convert to variant objects.
 
@@ -115,9 +120,14 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
     objects = set([])
 
     # Get all variants in the parq file:
+    for column_name in [_VARIANT_NAME_COLUMN, _VARIANT_CLASS_COLUMN]:
+        if column_name not in class_table.columns:
+            raise ValueError("{} does not have a column named {}".format(parq_path, column_name))
+
     variant_classes = {}
-    for variant_name, variant_class in class_table['class'].items():
-        variant_name = variant_name.split('.')[1]
+    for row_index, row in class_table.iterrows():
+        variant_name = row[_VARIANT_NAME_COLUMN]
+        variant_class = row[_VARIANT_CLASS_COLUMN]
 
         # Convert class to deeprank format (0: benign, 1: pathogenic):
         if variant_class == 0.0:
@@ -131,10 +141,14 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         variant_classes[variant_name] = variant_class
 
     # Get all mappings to pdb and use them to create variant objects:
+    for column_name in [_VARIANT_NAME_COLUMN, _PDB_AC_COLUMN, _PDB_NUMBER_COLUMN]:
+        if column_name not in mappings_table.columns:
+            raise ValueError("{}/{} does not have a column named {}".format(hdf5_path, "mappings", column_name))
+
     objects = set([])
     for variant_index, variant_row in mappings_table.iterrows():
 
-        variant_name = variant_row["variant"]
+        variant_name = variant_row[_VARIANT_NAME_COLUMN]
         if variant_name not in variant_classes:
             _log.warning("no such variant: {}".format(variant_name))
             continue
@@ -147,8 +161,8 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
 
-        pdb_ac = variant_row["pdb_structure"]
-        pdb_number_string = variant_row["pdbnumber"]
+        pdb_ac = variant_row[_PDB_AC_COLUMN]
+        pdb_number_string = variant_row[_PDB_NUMBER_COLUMN]
         if pdb_number_string[-1].isalpha():
             insertion_code = pdb_number_string[-1]
             pdb_number = int(pdb_number_string[:-1])
