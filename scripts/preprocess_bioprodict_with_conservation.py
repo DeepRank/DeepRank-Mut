@@ -124,32 +124,14 @@ _VARIANT_CLASS_COLUMN = "class"
 _PDB_AC_COLUMN = "pdb_structure"
 _PDB_NUMBER_COLUMN = "pdbnumber"
 
-def get_variant_data(parq_path, hdf5_path, pdb_root):
-    """ Extract data from the dataset and convert to variant objects.
 
-        Args:
-            parq_path (str): path to the bioprodict parq file, containing the variants
-            hdf5_path (str): path to the bioprodict hdf5 file, mapping the variants to pdb entries
-            pdb_root (str): path to the directory where the pdb files are located as: pdb????.ent
+def get_variant_data(parq_path):
 
-        Returns (list of PdbVariantSelection objects): the variants in the dataset
-        Raises (ValueError): if data is inconsistent
-    """
-
-    amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
+    variant_data = []
 
     class_table = pandas.read_parquet(parq_path)
-    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
 
-    objects = set([])
-
-    # Get all variants in the parq file:
-    for column_name in [_VARIANT_NAME_COLUMN, _VARIANT_CLASS_COLUMN]:
-        if column_name not in class_table.columns:
-            raise ValueError("{} has no column named {}".format(parq_path, column_name))
-
-    variant_classes = {}
-    for row_index, row in class_table.iterrows():
+    for _, row in class_table.iterrows():
         variant_name = row[_VARIANT_NAME_COLUMN]
         variant_class = row[_VARIANT_CLASS_COLUMN]
 
@@ -162,25 +144,21 @@ def get_variant_data(parq_path, hdf5_path, pdb_root):
         else:
             raise ValueError("Unknown class: {}".format(variant_class))
 
-        variant_classes[variant_name] = variant_class
+        variant_data.append((variant_name, variant_class))
 
-    # Get all mappings to pdb and use them to create variant objects:
-    for column_name in [_VARIANT_NAME_COLUMN, _PDB_AC_COLUMN, _PDB_NUMBER_COLUMN]:
-        if column_name not in mappings_table.columns:
-            raise ValueError("{}/{} has no column named {}".format(hdf5_path, "mappings", column_name))
+    return variant_data
 
-    objects = set([])
 
-    protein_variants = {}
+def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
 
-    for _, variant_row in mappings_table.iterrows():
+    amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
 
-        variant_name = variant_row["variant"]
-        if variant_name not in variant_classes:
-            _log.warning("no such variant: {}".format(variant_name))
-            continue
+    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
 
-        variant_class = variant_classes[variant_name]
+    proteins_variants = []
+
+    for variant_name, variant_class in variant_data:
+        variant_section = mappings_table.loc[mappings_table.variant == variant_name].dropna()
 
         enst_ac = variant_name[:15]
         swap = variant_name[15:]
@@ -188,63 +166,67 @@ def get_variant_data(parq_path, hdf5_path, pdb_root):
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
 
-        pdb_ac = variant_row["pdb_structure"]
+        for _, row in variant_section.iterrows():  # each row maps the variant to one pdb entry
 
-        pdb_number_string = variant_row["pdbnumber"]
-        if pdb_number_string[-1].isalpha():
+            pdb_ac = row["pdb_structure"]
 
-            pdb_number = int(pdb_number_string[:-1])
-            insertion_code = pdb_number_string[-1]
-        else:
-            pdb_number = int(pdb_number_string)
-            insertion_code = None
+            pdb_number_string = row["pdbnumber"]
+            if pdb_number_string[-1].isalpha():
 
-        chain_id = pdb_ac[4]
-        pdb_ac = pdb_ac[:4]
+                pdb_number = int(pdb_number_string[:-1])
+                insertion_code = pdb_number_string[-1]
+            else:
+                pdb_number = int(pdb_number_string)
+                insertion_code = None
 
-        pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-        if not os.path.isfile(pdb_path):
-            _log.warning("no such pdb: {}".format(pdb_path))
-            continue
+            chain_id = pdb_ac[4]
+            pdb_ac = pdb_ac[:4]
 
-        _log.info("add variant on {} {} {} {}->{} = {}"
-                  .format(pdb_path, chain_id, pdb_number,
-                          wt_amino_acid_code, var_amino_acid_code,
-                          variant_class))
+            pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
+            if not os.path.isfile(pdb_path):
+                _log.warning("no such pdb: {}".format(pdb_path))
+                continue
 
-        protein_ac = variant_row['protein_accession']
+            protein_ac = row['protein_accession']
 
-        o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
-                                amino_acids_by_code[wt_amino_acid_code],
-                                amino_acids_by_code[var_amino_acid_code],
-                                {}, variant_class, insertion_code)
-        objects.add(o)
+            variant = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+                                          amino_acids_by_code[wt_amino_acid_code],
+                                          amino_acids_by_code[var_amino_acid_code],
+                                          {}, variant_class, insertion_code)
 
-        protein_variants[(protein_ac, residue_number)] = o
+            _log.debug("adding variant {} on {} residue {}".format(variant, protein_ac, residue_number))
+
+            proteins_variants.append((protein_ac, residue_number, variant))
+
+
+def get_conservation_row(conservation_table, protein_ac, residue_number):
+    protein_section = conservation_table.loc[conservation_table.accession == protein_ac].dropna()
+
+    row_number = 1
+    for _, row in protein_section.iterrows():
+        if row_number == residue_number:
+            return row
+
+        row_number += 1
+
+    raise ValueError("residue number {} was given, but got {} rows for {}".format(residue_number, row_number, protein_ac))
+
+
+def get_conservation_data(hdf5_path, proteins_variants):
 
     conservations = {}
     protein_ac = None
     prev_ac = None
     residue_number = None
     conservation_table = pandas.read_hdf(hdf5_path, "conservation")
-    for _, conservation_row in conservation_table.iterrows():
-        protein_ac = conservation_row['accession']
-        if protein_ac != prev_ac:
-            residue_number = 1
-        else:
-            residue_number += 1
 
-        key = (protein_ac, residue_number)
-        if key in protein_variants:
-            variant = protein_variants[key]
+    for protein_ac, residue_number, variant in protein_variant_mapping:
+        row = get_conservation_row(conservation_table, protein_ac, residue_number)
 
-            _log.debug("conservation for {}".format(variant))
-            conservations[variant] = {amino_acid: conservation_row["sub_consv_{}".format(amino_acid.letter)]
-                                      for amino_acid in amino_acids}
+        conservations[variant] = {amino_acid: row["sub_consv_{}".format(amino_acid.letter)]
+                                  for amino_acid in amino_acids}
 
-        prev_ac = protein_ac
-
-    return objects, conservations
+    return conservations
 
 
 def get_subset(variants):
@@ -292,9 +274,11 @@ if __name__ == "__main__":
        'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
     }
 
-    variants, conservations = get_variant_data(args.variant_path, args.map_path, args.pdb_root)
+    variant_data = get_variant_data(args.variant_path)
+    proteins_variants = get_pdb_mappings(args.map_path, args.pdb_root, variant_data)
+    conservations = get_conservation_data(args.map_path, proteins_variants)
 
-    variants = get_subset(variants)
+    variants = get_subset(conservations.keys())
 
     try:
         preprocess(variants, args.out_path, args.data_augmentation, grid_info, conservations)
