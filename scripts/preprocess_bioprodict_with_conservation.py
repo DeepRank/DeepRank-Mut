@@ -129,6 +129,8 @@ def get_variant_data(parq_path):
 
     variant_data = []
 
+    _log.debug("reading {}".format(parq_path))
+
     class_table = pandas.read_parquet(parq_path)
 
     for _, row in class_table.iterrows():
@@ -144,6 +146,8 @@ def get_variant_data(parq_path):
         else:
             raise ValueError("Unknown class: {}".format(variant_class))
 
+        _log.debug("add variant {} {}".format(variant_name, variant_class))
+
         variant_data.append((variant_name, variant_class))
 
     return variant_data
@@ -152,6 +156,8 @@ def get_variant_data(parq_path):
 def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
 
     amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
+
+    _log.debug("reading {} mappings table".format(hdf5_path))
 
     mappings_table = pandas.read_hdf(hdf5_path, "mappings")
 
@@ -218,10 +224,14 @@ def get_conservation_data(hdf5_path, proteins_variants):
     protein_ac = None
     prev_ac = None
     residue_number = None
+
+    _log.debug("reading {} conservation table".format(hdf5_path))
     conservation_table = pandas.read_hdf(hdf5_path, "conservation")
 
     for protein_ac, residue_number, variant in protein_variant_mapping:
         row = get_conservation_row(conservation_table, protein_ac, residue_number)
+
+        _log.debug("adding conservation for {} from {} residue {}".format(variant, protein_ac, residue_number))
 
         conservations[variant] = {amino_acid: row["sub_consv_{}".format(amino_acid.letter)]
                                   for amino_acid in amino_acids}
