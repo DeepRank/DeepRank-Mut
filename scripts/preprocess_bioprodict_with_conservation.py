@@ -45,7 +45,7 @@ arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of ea
 
 
 
-logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
+logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.DEBUG)
 _log = logging.getLogger(__name__)
 
 
@@ -204,21 +204,10 @@ def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
 
             proteins_variants.append((protein_ac, residue_number, variant))
 
-
-def get_conservation_row(conservation_table, protein_ac, residue_number):
-    protein_section = conservation_table.loc[conservation_table.accession == protein_ac].dropna()
-
-    row_number = 1
-    for _, row in protein_section.iterrows():
-        if row_number == residue_number:
-            return row
-
-        row_number += 1
-
-    raise ValueError("residue number {} was given, but got {} rows for {}".format(residue_number, row_number, protein_ac))
+    return proteins_variants
 
 
-def get_conservation_data(hdf5_path, proteins_variants):
+def get_conservation_data(hdf5_path, protein_variant_mapping):
 
     conservations = {}
     protein_ac = None
@@ -229,7 +218,14 @@ def get_conservation_data(hdf5_path, proteins_variants):
     conservation_table = pandas.read_hdf(hdf5_path, "conservation")
 
     for protein_ac, residue_number, variant in protein_variant_mapping:
-        row = get_conservation_row(conservation_table, protein_ac, residue_number)
+
+        protein_section = conservation_table.loc[conservation_table.accession == protein_ac]
+
+        if len(protein_section) < residue_number:
+            _log.warning("{} residue {} was given, but found only {} rows for this protein".format(protein_ac, residue_number, len(protein_section)))
+            continue
+
+        row = protein_section.iloc[residue_number - 1]
 
         _log.debug("adding conservation for {} from {} residue {}".format(variant, protein_ac, residue_number))
 
