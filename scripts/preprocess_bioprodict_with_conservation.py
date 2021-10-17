@@ -64,6 +64,7 @@ def preprocess(variants, hdf5_path, data_augmentation, grid_info, conservations)
             hdf5_path (str): the output HDF5 path
             data_augmentation (int): the number of data augmentations per variant
             grid_info (dict): the settings for the grid
+            conservations (dict(PdbVariantSelection, dict(AminoAcid, float))): The conservation values associated with each variant
     """
 
     data_generator = DataGenerator(variants,
@@ -79,6 +80,12 @@ def preprocess(variants, hdf5_path, data_augmentation, grid_info, conservations)
 
 
 def add_conservation(conservations, output_hdf5):
+    """ Adds the conservation data to the hdf5 file output by deeprank preprocessing.
+
+        Args:
+            conservations (dict(PdbVariantSelection, dict(AminoAcid, float))): The conservation values associated with each variant
+            output_hdf5 (str): path to the hdf5 file, containing the preprocessed entries to add the conservations to
+    """
 
     with h5py.File(output_hdf5, 'a') as f5:
         for variant_group_name in f5.keys():
@@ -126,6 +133,12 @@ _PDB_NUMBER_COLUMN = "pdbnumber"
 
 
 def get_variant_data(parq_path):
+    """ extracts variant names and truth values(classes from a parquet file)
+
+        Args:
+            parq_path(str): path to the parquet file in propert format
+        Returns (list((str, VariantClass)): the variant names and classes
+    """
 
     variant_data = []
 
@@ -154,6 +167,15 @@ def get_variant_data(parq_path):
 
 
 def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
+    """ read the hdf5 file to map variant data to pdb and protein data
+
+        Args:
+            hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
+            pdb_root(str): path to the directory where pdbs are stored
+            variant_data (list((str, VariantClass)): the variant names and classes
+
+        Returns (list((str, int, PdbVariantSelection))): the protein accession code, residue number and variant objects that deeprank will use
+    """
 
     amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
 
@@ -208,6 +230,14 @@ def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
 
 
 def get_conservation_data(hdf5_path, protein_variant_mapping):
+    """ extract conservation data from the hdf5 table. Lookup proteins and their conservation values.
+
+        Args:
+            hdf5_path (str): path to the hdf5 file, containing a table named "conservation"
+            protein_variant_mapping (list((str, int, PdbVariantSelection))): the protein accession code, residue number and variant objects that deeprank will use
+
+        Returns (dict(PdbVariantSelection, dict(AminoAcid, float))): The conservation values associated with each variant
+    """
 
     conservations = {}
     protein_ac = None

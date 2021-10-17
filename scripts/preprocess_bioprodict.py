@@ -101,6 +101,12 @@ _PDB_NUMBER_COLUMN = "pdbnumber"
 
 
 def get_variant_data(parq_path):
+    """ extracts variant names and truth values(classes from a parquet file)
+
+        Args:
+            parq_path(str): path to the parquet file in propert format
+        Returns (list((str, VariantClass)): the variant names and classes
+    """
 
     variant_data = []
 
@@ -129,6 +135,16 @@ def get_variant_data(parq_path):
 
 
 def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
+    """ read the hdf5 file to map variant data to pdb and pssm data
+
+        Args:
+            hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
+            pdb_root(str): path to the directory where pdbs are stored
+            pssm_root(str): path to the directory where pssms are stored
+            variant_data (list((str, VariantClass)): the variant names and classes
+
+        Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
+    """
 
     amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
 
