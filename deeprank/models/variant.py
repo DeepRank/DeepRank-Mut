@@ -96,7 +96,11 @@ class PdbVariantSelection:
         return hash(s)
 
     def __repr__(self):
-        return "{}:{}:{}{}:{}->{}".format(self._pdb_path, self._chain_id, self._residue_number, self._insertion_code, self._wild_type_amino_acid, self._variant_amino_acid)
+        residue_id = str(self._residue_number)
+        if self._insertion_code is not None:
+            residue_id += self._insertion_code
+
+        return "{}:{}:{}:{}->{}".format(self._pdb_path, self._chain_id, residue_id, self._wild_type_amino_acid, self._variant_amino_acid)
 
     @property
     def variant_class(self):

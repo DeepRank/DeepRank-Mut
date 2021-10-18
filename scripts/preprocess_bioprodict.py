@@ -99,33 +99,22 @@ _VARIANT_CLASS_COLUMN = "class"
 _PDB_AC_COLUMN = "pdb_structure"
 _PDB_NUMBER_COLUMN = "pdbnumber"
 
-def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
-    """ Extract data from the dataset and convert to variant objects.
+
+def get_variant_data(parq_path):
+    """ extracts variant names and truth values(classes from a parquet file)
 
         Args:
-            parq_path (str): path to the bioprodict parq file, containing the variants
-            hdf5_path (str): path to the bioprodict hdf5 file, mapping the variants to pdb entries
-            pdb_root (str): path to the directory where the pdb files are located as: pdb????.ent
-            pssm_root (str): path to the directory where the PSSMgen output files are located
-
-        Returns (list of PdbVariantSelection objects): the variants in the dataset
-        Raises (ValueError): if data is inconsistent
+            parq_path(str): path to the parquet file in propert format
+        Returns (list((str, VariantClass)): the variant names and classes
     """
 
-    amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
+    variant_data = []
+
+    _log.debug("reading {}".format(parq_path))
 
     class_table = pandas.read_parquet(parq_path)
-    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
 
-    objects = set([])
-
-    # Get all variants in the parq file:
-    for column_name in [_VARIANT_NAME_COLUMN, _VARIANT_CLASS_COLUMN]:
-        if column_name not in class_table.columns:
-            raise ValueError("{} does not have a column named {}".format(parq_path, column_name))
-
-    variant_classes = {}
-    for row_index, row in class_table.iterrows():
+    for _, row in class_table.iterrows():
         variant_name = row[_VARIANT_NAME_COLUMN]
         variant_class = row[_VARIANT_CLASS_COLUMN]
 
@@ -138,22 +127,35 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         else:
             raise ValueError("Unknown class: {}".format(variant_class))
 
-        variant_classes[variant_name] = variant_class
+        _log.debug("add variant {} {}".format(variant_name, variant_class))
 
-    # Get all mappings to pdb and use them to create variant objects:
-    for column_name in [_VARIANT_NAME_COLUMN, _PDB_AC_COLUMN, _PDB_NUMBER_COLUMN]:
-        if column_name not in mappings_table.columns:
-            raise ValueError("{}/{} does not have a column named {}".format(hdf5_path, "mappings", column_name))
+        variant_data.append((variant_name, variant_class))
 
-    objects = set([])
-    for variant_index, variant_row in mappings_table.iterrows():
+    return variant_data
 
-        variant_name = variant_row[_VARIANT_NAME_COLUMN]
-        if variant_name not in variant_classes:
-            _log.warning("no such variant: {}".format(variant_name))
-            continue
 
-        variant_class = variant_classes[variant_name]
+def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
+    """ read the hdf5 file to map variant data to pdb and pssm data
+
+        Args:
+            hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
+            pdb_root(str): path to the directory where pdbs are stored
+            pssm_root(str): path to the directory where pssms are stored
+            variant_data (list((str, VariantClass)): the variant names and classes
+
+        Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
+    """
+
+    amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
+
+    _log.debug("reading {} mappings table".format(hdf5_path))
+
+    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
+
+    variants = set([])
+
+    for variant_name, variant_class in variant_data:
+        variant_section = mappings_table.loc[mappings_table.variant == variant_name].dropna()
 
         enst_ac = variant_name[:15]
         swap = variant_name[15:]
@@ -161,40 +163,42 @@ def get_variant_data(parq_path, hdf5_path, pdb_root, pssm_root):
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
 
-        pdb_ac = variant_row[_PDB_AC_COLUMN]
-        pdb_number_string = variant_row[_PDB_NUMBER_COLUMN]
-        if pdb_number_string[-1].isalpha():
-            insertion_code = pdb_number_string[-1]
-            pdb_number = int(pdb_number_string[:-1])
-        else:
-            insertion_code = None
-            pdb_number = int(pdb_number_string)
+        for _, row in variant_section.iterrows():  # each row maps the variant to one pdb entry
 
-        chain_id = pdb_ac[4]
-        pdb_ac = pdb_ac[:4]
+            pdb_ac = row["pdb_structure"]
 
-        pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-        if not os.path.isfile(pdb_path):
-            _log.warning("no such pdb: {}".format(pdb_path))
-            continue
+            pdb_number_string = row["pdbnumber"]
+            if pdb_number_string[-1].isalpha():
 
-        pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
-        if len(pssm_paths) == 0:
-            _log.warning("no pssms for: {}".format(pdb_ac))
-            continue
+                pdb_number = int(pdb_number_string[:-1])
+                insertion_code = pdb_number_string[-1]
+            else:
+                pdb_number = int(pdb_number_string)
+                insertion_code = None
 
-        _log.info("add variant on {} {} {} {}->{} = {}"
-                  .format(pdb_path, chain_id, pdb_number,
-                          wt_amino_acid_code, var_amino_acid_code,
-                          variant_class))
+            chain_id = pdb_ac[4]
+            pdb_ac = pdb_ac[:4]
 
-        o = PdbVariantSelection(pdb_path, chain_id, pdb_number,
-                                amino_acids_by_code[wt_amino_acid_code],
-                                amino_acids_by_code[var_amino_acid_code],
-                                pssm_paths, variant_class, insertion_code)
-        objects.add(o)
+            pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
+            if not os.path.isfile(pdb_path):
+                _log.warning("no such pdb: {}".format(pdb_path))
+                continue
 
-    return list(objects)
+            pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
+            if len(pssm_paths) == 0:
+                _log.warning("no pssms for {}".format(pdb_ac))
+                continue
+
+            variant = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+                                          amino_acids_by_code[wt_amino_acid_code],
+                                          amino_acids_by_code[var_amino_acid_code],
+                                          pssm_paths, variant_class, insertion_code)
+
+            _log.debug("adding variant {}".format(variant))
+
+            variants.add(variant)
+
+    return variants
 
 
 def get_subset(variants):
@@ -242,7 +246,9 @@ if __name__ == "__main__":
        'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
     }
 
-    variants = get_variant_data(args.variant_path, args.map_path, args.pdb_root, args.pssm_root)
+    variants_data = get_variant_data(args.variant_path)
+
+    variants = get_pdb_mappings(args.map_path, args.pdb_root, args.pssm_root, variants_data)
 
     variants = get_subset(variants)
 
