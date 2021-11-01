@@ -12,32 +12,6 @@ from deeprank.config import logger
 _log = logging.getLogger(__name__)
 
 
-def get_squared_distance(position1, position2):
-    """ Get the squared euclidean distance between two positions in space.
-        (which is faster to compute than the distance)
-
-        Args:
-            position1 (numpy vector): first position
-            position2 (numpy vector): second position
-
-        Returns (float): the squared distance
-    """
-
-    return numpy.sum(numpy.square(position1 - position2))
-
-def get_distance(position1, position2):
-    """ Get euclidean distance between two positions in space.
-
-        Args:
-            position1 (numpy vector): first position
-            position2 (numpy vector): second position
-
-        Returns (float): the distance
-    """
-
-    return numpy.sqrt(get_squared_distance(position1, position2))
-
-
 def get_atoms(pdb2sql):
     """ Builds a list of atom objects, according to the contents of the pdb file.
 
@@ -103,9 +77,6 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_
     atoms_in_residue = torch.tensor([atom.residue.number == residue_number and
                                      atom.chain_id == chain_id and
                                      atom.residue.insertion_code == insertion_code for atom in atoms]).to(device)
-    atoms_in_residue_matrix = atoms_in_residue.expand(count_atoms, count_atoms)
-    atoms_in_residue_matrix = torch.logical_xor(atoms_in_residue_matrix,
-                                                atoms_in_residue_matrix.transpose(0, 1))
 
     # calculate euclidean distances
     atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
@@ -114,6 +85,9 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_
     neighbour_matrix = atom_distance_matrix < max_interatomic_distance
 
     # select pairs of which only one of the atoms is from the residue
+    atoms_in_residue_matrix = atoms_in_residue.expand(count_atoms, count_atoms)
+    atoms_in_residue_matrix = torch.logical_xor(atoms_in_residue_matrix,
+                                                atoms_in_residue_matrix.transpose(0, 1))
     residue_neighbour_matrix = torch.logical_and(atoms_in_residue_matrix, neighbour_matrix)
 
     # Create a set of pair objects

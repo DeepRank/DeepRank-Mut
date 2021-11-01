@@ -4,10 +4,12 @@ import re
 import os
 
 import numpy
+import torch
+import torch.cuda
 
 from deeprank.config import logger
 from deeprank.models.pair import Pair
-from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_distance
+from deeprank.operate.pdb import get_atoms
 from deeprank.features.FeatureClass import FeatureClass
 from deeprank.parse.param import ParamParser
 from deeprank.parse.top import TopParser
@@ -160,27 +162,43 @@ class _PhysicsStorage:
         if len(self._atom_info) == 0:
             raise RuntimeError("atom info is empty, please create a AtomicContacts object first")
 
-        self._vanderwaals_per_atom = {}
-        self._vanderwaals_per_position = {}
-        self._charge_per_atom = {}
-        self._charge_per_position = {}
-        self._coulomb_per_atom = {}
-        self._coulomb_per_position = {}
+        self._atoms = get_atoms(sqldb)
 
-    def include_pair(self, atom1, atom2, max_distance):
-        """Add a pair of atoms to the sum
 
-        Args:
-            atom1 (int): number of atom 1
-            atom2 (int): number of atom 2
-            max_distance (float): the max distance that was used to find the atoms
+    def compute_features(self, feature_data, feature_data_xyz, max_distance):
 
-        Raises:
-            ValueError: if atom1 and atom2 are at the same position
-        """
+        if torch.cuda.is_available():
+            device = "gpu"
+        else:
+            device = "cpu"
 
-        position1 = atom1.position
-        position2 = atom2.position
+        # get all the atoms in the pdb file:
+        atoms = get_atoms(pdb2sql)
+        count_atoms = len(atoms)
+        atom_positions = torch.tensor([atom.position for atom in atoms]).to(device)
+        atoms_in_residue = torch.tensor([atom.residue.number == residue_number and 
+                                         atom.chain_id == chain_id and 
+                                         atom.residue.insertion_code == insertion_code for atom in atoms]).to(device)
+
+        # calculate euclidean distances
+        atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
+
+        # select pairs that are close enough
+        neighbour_matrix = atom_distance_matrix < max_interatomic_distance
+
+        # select pairs of which only one of the atoms is from the residue
+        atoms_in_residue_matrix = atoms_in_residue.expand(count_atoms, count_atoms)
+        atoms_in_residue_matrix = torch.logical_xor(atoms_in_residue_matrix,
+                                                    atoms_in_residue_matrix.transpose(0, 1)) 
+        residue_neighbour_matrix = torch.logical_and(atoms_in_residue_matrix, neighbour_matrix)
+
+        neighbour_atom_indexes = [(self._atoms[index0].id, self._atoms[index1].id) for torch.nonzero(residue_neighbour_matrix)]
+
+        self._compute_vanderwaals(neighbour_atom_indexes, distance_matrix, feature_data, feature_data_xyz, max_distance)
+        self._compute_coulomb(neighbour_atom_indexes, distance_matrix, feature_data, feature_data_xyz, max_distance)
+        self._compute_charge(neighbour_atom_indexes, feature_data, feature_data_xyz)
+
+    def _compute_vanderwaals(self, neighbour_atom_indexes, distance_matrix, feature_data, feature_data_xyz, max_distance):
 
         # Which epsilon and sigma we take from the atoms, depends on whether the contact
         # is inter- or intra-chain.
@@ -190,6 +208,9 @@ class _PhysicsStorage:
         else:
             epsilon1, sigma1 = self._vanderwaals_parameters[atom1.id][:2]
             epsilon2, sigma2 = self._vanderwaals_parameters[atom2.id][:2]
+
+            
+
 
         charge1 = self._charges[atom1.id]
         charge2 = self._charges[atom2.id]
@@ -353,6 +374,7 @@ class AtomicContacts(FeatureClass):
         self._contact_atom_pairs = get_residue_contact_atom_pairs(self.sqldb,
                                                                   self.variant.chain_id,
                                                                   self.variant.residue_number,
+                                                                  self.variant.insertion_code,
                                                                   self.max_contact_distance)
 
     def _extend_contact_to_residues(self):
