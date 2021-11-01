@@ -1,8 +1,9 @@
 
 
 class Residue:
-    def __init__(self, number, name, chain_id):
+    def __init__(self, number, name, chain_id, insertion_code=None):
         self.number = number
+        self.insertion_code = insertion_code
         self.name = name
         self.chain_id = chain_id
         self.atoms = []
