@@ -8,12 +8,13 @@ from deeprank.parse.forcefield.top import TopParser
 from deeprank.parse.forcefield.patch import PatchParser
 from deeprank.parse.forcefield.residue import ResidueClassParser
 from deeprank.parse.forcefield.param import ParamParser
+import deeprank.features.forcefield
 
 
 _log = logging.getLogger(__name__)
 
 
-_forcefield_directory_path = os.path.dirname(os.path.abspath(__file__))
+_forcefield_directory_path = os.path.dirname(os.path.abspath(deeprank.features.forcefield.__file__))
 
 
 class AtomicForcefield:
