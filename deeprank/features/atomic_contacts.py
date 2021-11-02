@@ -34,10 +34,22 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
 
     data = [list(atoms[index].position) + [values[index]] for index in range(len(atoms))]
 
-    feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf")
+    feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf", chunks=True)
+
+    # We're currently not doing anything with the raw features.
 
 
 def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
+    """
+        For all atoms surrounding the variant, calculate vanderwaals, coulomb and charge features.
+        This uses torch for fast computation. The downside of this is that we cannot use python objects.
+
+        Args:
+            pdb_path (str): path to the pdb file
+            feature_group (hdf5 group): where to store the xyz features
+            raw_feature_group (hdf5 group): where to store the raw features (not used)
+            variant (PdbVariantSelection): the variant
+    """
 
     feature_object = FeatureClass("Atomic")
 
@@ -73,7 +85,8 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
                                                 atoms_in_variant_matrix.transpose(0, 1))
     variant_neighbour_matrix = torch.logical_and(atoms_in_variant_matrix, neighbour_matrix)
 
-    # extend contact to residues
+    # extend contacts from just atoms to entire residues.
+    # (slow)
     other_atoms_involved = set([])
     atom_index_lookup = {atom: index for index, atom in enumerate(atoms)}
     for index0, index1 in torch.nonzero(variant_neighbour_matrix):
@@ -86,7 +99,7 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
             if index1 != other_index:
                 variant_neighbour_matrix[index1, other_index] = True
 
-    # initialize the parameters for every pair
+    # fetch the parameters for every pair of atoms
     epsilon0_list = []
     epsilon1_list = []
     sigma0_list = []
@@ -137,11 +150,11 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     count_pairs = len(atom_pair_indices)
 
     # calculate coulomb potentials
-    constant_factor = COULOMB_CONSTANT / EPSILON0
+    coulomb_constant_factor = COULOMB_CONSTANT / EPSILON0
 
     coulomb_radius_factors = distances * torch.square(torch.ones(count_pairs).to(device) - torch.square(distances / max_interatomic_distance))
 
-    coulomb_potentials = charges0 * charges1 * constant_factor * coulomb_radius_factors
+    coulomb_potentials = charges0 * charges1 * coulomb_constant_factor * coulomb_radius_factors
 
     # sum per atom
     coulomb_per_atom = (scatter_sum(coulomb_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
@@ -150,6 +163,8 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     _store_features(feature_group, raw_feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
 
     # calculate vanderwaals potentials
+    vanderwaals_constant_factor = pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3)
+
     average_sigmas = 0.5 * (sigmas0 + sigmas1)
     average_epsilons = torch.sqrt(epsilons0 * epsilons1)
 
@@ -158,8 +173,7 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
 
     vanderwaals_prefactors = (torch.pow(SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances, 2) *
                               (SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances - 3 *
-                              (SQUARED_VANDERWAALS_DISTANCE_ON - squared_distances)) /
-                              pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3))
+                              (SQUARED_VANDERWAALS_DISTANCE_ON - squared_distances)) / vanderwaals_constant_factor)
     vanderwaals_prefactors[indices_tooclose] = 0.0
     vanderwaals_prefactors[indices_toofar] = 1.0
 
