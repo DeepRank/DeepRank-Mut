@@ -18,7 +18,7 @@ def get_neighbour_c_alphas(variant, distance_cutoff):
     db = pdb2sql(variant.pdb_path)
     try:
         atoms = set([])
-        for atom1, atom2 in get_residue_contact_atom_pairs(db, variant.chain_id, variant.residue_number, distance_cutoff):
+        for atom1, atom2 in get_residue_contact_atom_pairs(db, variant.chain_id, variant.residue_number, variant.insertion_code, distance_cutoff):
 
             # For each residue in the contact range, get the C-alpha:
             for atom in (atom1.residue.atoms + atom2.residue.atoms):
