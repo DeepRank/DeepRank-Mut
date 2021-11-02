@@ -152,9 +152,9 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     # calculate coulomb potentials
     coulomb_constant_factor = COULOMB_CONSTANT / EPSILON0
 
-    coulomb_radius_factors = distances * torch.square(torch.ones(count_pairs).to(device) - torch.square(distances / max_interatomic_distance))
+    coulomb_radius_factors = torch.square(torch.ones(count_pairs).to(device) - torch.square(distances / max_interatomic_distance))
 
-    coulomb_potentials = charges0 * charges1 * coulomb_constant_factor * coulomb_radius_factors
+    coulomb_potentials = charges0 * charges1 * coulomb_constant_factor / distances * coulomb_radius_factors
 
     # sum per atom
     coulomb_per_atom = (scatter_sum(coulomb_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
