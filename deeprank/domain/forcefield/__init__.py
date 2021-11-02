@@ -19,7 +19,7 @@ _forcefield_directory_path = os.path.dirname(os.path.abspath(deeprank.features.f
 
 class AtomicForcefield:
     def __init__(self):
-        top_path = os.path.join(_forcefield_directory_path, "protein-allhdg5-5_new.top")
+        top_path = os.path.join(_forcefield_directory_path, "protein-allhdg5-4_new.top")
         with open(top_path, 'rt') as f:
             self._top_rows = {(row.residue_name, row.atom_name): row for row in TopParser.parse(f)}
 
@@ -102,67 +102,5 @@ class AtomicForcefield:
             raise ValueError("not mentioned in top or patch: {}".format(top_key))
 
         return charge
-
-    _EPSILON0 = 1.0
-    _COULOMB_CONSTANT = 332.0636
-
-    _VANDERWAALS_DISTANCE_OFF = 10.0
-    _VANDERWAALS_DISTANCE_ON = 6.5
-
-    _SQUARED_VANDERWAALS_DISTANCE_OFF = numpy.square(_VANDERWAALS_DISTANCE_OFF)
-    _SQUARED_VANDERWAALS_DISTANCE_ON = numpy.square(_VANDERWAALS_DISTANCE_ON)
-
-    def get_vanderwaals_energy(self, atom1, atom2):
-        "returns the vanderwaals energy between two atoms"
-
-        distance = get_distance(atom1.position, atom2.position)
-
-        atom1_parameters = self._get_vanderwaals_parameters(atom1)
-        atom2_parameters = self._get_vanderwaals_parameters(atom2)
-
-        atom1_epsilon = None
-        atom2_epsilon = None
-        atom1_sigma = None
-        atom2_sigma = None
-        if atom1.chain_id != atom2.chain_id:
-
-            atom1_epsilon = atom1_parameters.inter_epsilon
-            atom1_sigma = atom1_parameters.inter_sigma
-            atom2_epsilon = atom2_parameters.inter_epsilon
-            atom2_sigma = atom2_parameters.inter_sigma
-        else:
-            atom1_epsilon = atom1_parameters.intra_epsilon
-            atom1_sigma = atom1_parameters.intra_sigma
-            atom2_epsilon = atom2_parameters.intra_epsilon
-            atom2_sigma = atom2_parameters.intra_sigma
-
-        average_epsilon = numpy.sqrt(atom1_epsilon * atom2_epsilon)
-        average_sigma = 0.5 * (atom1_sigma + atom2_sigma)
-
-        prefactor = None
-        if distance > AtomicForcefield._VANDERWAALS_DISTANCE_OFF:
-            return 0.0  # too far
-
-        elif distance < AtomicForcefield._VANDERWAALS_DISTANCE_ON:
-            prefactor = 1.0  # very close
-
-        else:
-            squared_distance = numpy.square(distance)
-
-            prefactor = (pow(AtomicForcefield._SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distance, 2) *
-                         (AtomicForcefield._SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distance - 3 * (AtomicForcefield._SQUARED_VANDERWAALS_DISTANCE_ON - squared_distance)) /
-                          pow(AtomicForcefield._SQUARED_VANDERWAALS_DISTANCE_OFF - AtomicForcefield._SQUARED_VANDERWAALS_DISTANCE_ON, 3))
-
-        return 4.0 * average_epsilon * (pow(average_sigma / distance, 12) - pow(average_sigma / distance, 6)) * prefactor
-
-    def get_coulomb_energy(self, atom1, atom2):
-        "returns the coulomb energy between two atoms"
-
-        distance = get_distance(atom1.position, atom2.position)
-
-        charge1 = self.get_charge(atom1)
-        charge2 = self.get_charge(atom2)
-
-        return charge1 * charge2 * AtomicForcefield._COULOMB_CONSTANT / (AtomicForcefield._EPSILON0 * distance)
 
 atomic_forcefield = AtomicForcefield()
