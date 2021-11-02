@@ -1,6 +1,9 @@
 Bootstrap: docker
 From: python:3.8
 
+%files
+    requirements
 %post
     apt update && apt install -y openmpi-bin openmpi-common openssh-client openssh-server libopenmpi-dev
+    pip install torch
     pip install --no-cache-dir -r requirements
