@@ -56,8 +56,8 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
         pdb._close()
 
     count_atoms = len(atoms)
-    atom_positions = torch.tensor([atom.position for atom in atoms]).to(device)
-    atoms_in_residue = torch.tensor([atom.residue.number == variant.residue_number and
+    atom_positions = torch.from_numpy(numpy.array([atom.position for atom in atoms])).to(device)
+    atoms_in_variant = torch.tensor([atom.residue.number == variant.residue_number and
                                      atom.chain_id == variant.chain_id and
                                      atom.residue.insertion_code == variant.insertion_code for atom in atoms]).to(device)
 
@@ -68,12 +68,23 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     neighbour_matrix = atom_distance_matrix < max_interatomic_distance
 
     # select pairs of which only one of the atoms is from the variant residue
-    atoms_in_residue_matrix = atoms_in_residue.expand(count_atoms, count_atoms)
-    atoms_in_residue_matrix = torch.logical_xor(atoms_in_residue_matrix,
-                                                atoms_in_residue_matrix.transpose(0, 1))
-    variant_neighbour_matrix = torch.logical_and(atoms_in_residue_matrix, neighbour_matrix)
+    atoms_in_variant_matrix = atoms_in_variant.expand(count_atoms, count_atoms)
+    atoms_in_variant_matrix = torch.logical_xor(atoms_in_variant_matrix,
+                                                atoms_in_variant_matrix.transpose(0, 1))
+    variant_neighbour_matrix = torch.logical_and(atoms_in_variant_matrix, neighbour_matrix)
 
-    # TODO: extend contact to residues
+    # extend contact to residues
+    other_atoms_involved = set([])
+    atom_index_lookup = {atom: index for index, atom in enumerate(atoms)}
+    for index0, index1 in torch.nonzero(variant_neighbour_matrix):
+        for other_atom in atoms[index0].residue.atoms:
+            other_index = atom_index_lookup[other_atom]
+            if index0 != other_index:
+                variant_neighbour_matrix[index0, other_index] = True
+        for other_atom in atoms[index1].residue.atoms:
+            other_index = atom_index_lookup[other_atom]
+            if index1 != other_index:
+                variant_neighbour_matrix[index1, other_index] = True
 
     # initialize the parameters for every pair
     epsilon0_list = []
@@ -142,8 +153,8 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     average_sigmas = 0.5 * (sigmas0 + sigmas1)
     average_epsilons = torch.sqrt(epsilons0 * epsilons1)
 
-    indices_tooclose = (distances < VANDERWAALS_DISTANCE_ON).nonzero()
-    indices_toofar = (distances > VANDERWAALS_DISTANCE_OFF).nonzero()
+    indices_tooclose = torch.nonzero(distances < VANDERWAALS_DISTANCE_ON)
+    indices_toofar = torch.nonzero(distances > VANDERWAALS_DISTANCE_OFF)
 
     vanderwaals_prefactors = (torch.pow(SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances, 2) *
                               (SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances - 3 *
