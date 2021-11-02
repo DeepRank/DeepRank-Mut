@@ -1,7 +1,7 @@
 import re
 import logging
 
-from deeprank.models.param import VanderwaalsParam
+from deeprank.models.forcefield.param import VanderwaalsParam
 
 _log = logging.getLogger(__name__)
 

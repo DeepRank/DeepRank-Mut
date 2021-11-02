@@ -1,5 +1,6 @@
 torch
 torchsummary
+torch-scatter
 h5py
 numpy
 pandas
