@@ -17,6 +17,7 @@ def get_atoms_of_iterest(variant, distance_cutoff):
         for atom1, atom2 in get_residue_contact_atom_pairs(pdb,
                                                            variant.chain_id,
                                                            variant.residue_number,
+                                                           variant.insertion_code,
                                                            distance_cutoff):
 
             # Add all atoms, even from the variant residue itself:

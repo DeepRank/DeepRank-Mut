@@ -53,7 +53,7 @@ def test_residue_contact_atoms():
         atoms = get_atoms(pdb)
         query_residue = _find_residue(atoms, chain_id, residue_number)
 
-        contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, 8.5)
+        contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, None, 8.5)
 
         # Check for redundancy (we shouldn't see the same set of atoms twice)
         atom_pairs_encountered = []

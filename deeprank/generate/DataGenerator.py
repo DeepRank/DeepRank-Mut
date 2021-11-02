@@ -331,7 +331,9 @@ class DataGenerator(object):
                         self.logger.info(
                             f'{"":4s}Generated subgroup "grid_points"'
                             f' to store grid box center.')
-                except ValueError as ex:
+
+                except Exception as ex:
+
                     grid_error_flag = True
                     self.grid_error += [variant_name]
                     self.logger.exception(ex)

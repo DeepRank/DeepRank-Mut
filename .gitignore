@@ -6,6 +6,7 @@ Byte-compiled / optimized
 
 # editor swap files
 *.swp
+*.swo
 
 # python intermediary
 *.pyc
@@ -72,3 +73,6 @@ test/atomic_pair_interaction.dat
 htmlcov
 coverage.xml
 .coverage
+
+# singularity container
+*.sif

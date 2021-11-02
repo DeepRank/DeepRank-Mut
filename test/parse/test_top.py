@@ -3,7 +3,7 @@ import os
 
 from nose.tools import eq_, ok_
 
-from deeprank.parse.top import TopParser
+from deeprank.parse.forcefield.top import TopParser
 
 
 _top_path = os.path.join(pkg_resources.resource_filename('deeprank.features', ''),

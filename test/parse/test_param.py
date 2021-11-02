@@ -3,7 +3,7 @@ import pkg_resources
 
 from nose.tools import eq_, ok_
 
-from deeprank.parse.param import ParamParser
+from deeprank.parse.forcefield.param import ParamParser
 
 
 

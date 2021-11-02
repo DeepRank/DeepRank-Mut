@@ -3,7 +3,7 @@ import os
 
 from nose.tools import eq_, ok_
 
-from deeprank.parse.patch import PatchParser
+from deeprank.parse.forcefield.patch import PatchParser
 
 
 _patch_path = os.path.join(pkg_resources.resource_filename('deeprank.features', ''),

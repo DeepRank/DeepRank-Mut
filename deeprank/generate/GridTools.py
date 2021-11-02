@@ -219,7 +219,9 @@ class GridTools(object):
         """Get the center of conact atoms."""
 
         contact_atom_pairs = get_residue_contact_atom_pairs(self.sqldb,
-                                                            self.variant.chain_id, self.variant.residue_number,
+                                                            self.variant.chain_id,
+                                                            self.variant.residue_number,
+                                                            self.variant.insertion_code,
                                                             self.contact_distance)
         contact_atom_ids = set([])
         for atom1, atom2 in contact_atom_pairs:
@@ -341,7 +343,9 @@ class GridTools(object):
         # get the contact atoms
         atoms_by_chain = {}
         if only_contact:
-            contact_atom_pairs = get_residue_contact_atom_pairs(self.sqldb, self.variant.chain_id, self.variant.residue_number, self.contact_distance)
+            contact_atom_pairs = get_residue_contact_atom_pairs(self.sqldb, self.variant.chain_id,
+                                                                self.variant.residue_number, self.variant.insertion_code,
+                                                                self.contact_distance)
 
             for atom1, atom2 in contact_atom_pairs:
                 atoms_by_chain[atom1.chain_id] = atoms_by_chain.get(atom1.chain_id, []) + [atom1]
