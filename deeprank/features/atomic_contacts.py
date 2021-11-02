@@ -58,7 +58,7 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     else:
         device = "cpu"
 
-    max_interatomic_distance = 8.5
+    max_interatomic_distance = 10.0
 
     # get the atoms from the pdb
     pdb = pdb2sql(pdb_path)
