@@ -1,5 +1,5 @@
 import logging
-import pdb2sql
+from pdb2sql import pdb2sql
 import re
 import os
 
@@ -26,8 +26,15 @@ SQUARED_VANDERWAALS_DISTANCE_ON = numpy.square(VANDERWAALS_DISTANCE_ON)
 
 
 COULOMB_FEATURE_NAME = "coulomb"
-VANDERWAALS_FEATURE_NAME = "vanderwaals"
+VANDERWAALS_FEATURE_NAME = "vdwaals"
 CHARGE_FEATURE_NAME = "charge"
+
+
+def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, values):
+
+    data = [list(atoms[index].position) + [values[index]] for index in range(len(atoms))]
+
+    feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf")
 
 
 def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
@@ -50,9 +57,9 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
 
     count_atoms = len(atoms)
     atom_positions = torch.tensor([atom.position for atom in atoms]).to(device)
-    atoms_in_residue = torch.tensor([atom.residue.number == residue_number and
-                                     atom.chain_id == chain_id and
-                                     atom.residue.insertion_code == insertion_code for atom in atoms]).to(device)
+    atoms_in_residue = torch.tensor([atom.residue.number == variant.residue_number and
+                                     atom.chain_id == variant.chain_id and
+                                     atom.residue.insertion_code == variant.insertion_code for atom in atoms]).to(device)
 
     # calculate euclidean distances
     atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
@@ -76,14 +83,11 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     charges0_list = []
     charges1_list = []
     distances_list = []
-    all_atoms_involved = set([])
     atom_pair_indices = torch.nonzero(variant_neighbour_matrix)
+    charges_per_atom = torch.zeros(count_atoms)
     for index0, index1 in atom_pair_indices:
         atom0 = atoms[index0]
         atom1 = atoms[index1]
-
-        all_atoms_involved.add(atom0)
-        all_atoms_involved.add(atom1)
 
         vanderwaals_parameters0 = atomic_forcefield.get_vanderwaals_parameters(atom0)
         vanderwaals_parameters1 = atomic_forcefield.get_vanderwaals_parameters(atom1)
@@ -101,10 +105,14 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
             sigma0_list.append(vanderwaals_parameters0.intra_sigma)
             sigma1_list.append(vanderwaals_parameters1.intra_sigma)
 
-        charges0_list.append(atomic_forcefield.get_charge(atom0))
-        charges1_list.append(atomic_forcefield.get_charge(atom1))
+        charges_per_atom[index0] = atomic_forcefield.get_charge(atom0)
+        charges0_list.append(charges_per_atom[index0])
+        charges_per_atom[index1] = atomic_forcefield.get_charge(atom1)
+        charges1_list.append(charges_per_atom[index1])
 
         distances_list.append(atom_distance_matrix[index0, index1])
+
+    _store_features(feature_group, raw_feature_group, CHARGE_FEATURE_NAME, atoms, charges_per_atom)
 
     # convert the parameter lists to tensors
     epsilons0 = torch.tensor(epsilon0_list).to(device)
@@ -116,33 +124,38 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     distances = torch.tensor(distances_list).to(device)
     squared_distances = torch.square(distances)
     count_pairs = len(atom_pair_indices)
-    count_atoms_involved = len(all_atoms_involved)
 
     # calculate coulomb potentials
     constant_factor = COULOMB_CONSTANT / EPSILON0
 
-    coulomb_radius_factors = distances * torch.square(torch.ones(count_pairs) - torch.square(distances / max_interatomic_distance))
+    coulomb_radius_factors = distances * torch.square(torch.ones(count_pairs).to(device) - torch.square(distances / max_interatomic_distance))
 
     coulomb_potentials = charges0 * charges1 * constant_factor * coulomb_radius_factors
 
     # sum per atom
-    coulomb_sums_per_atom_index = scatter_sum(coulomb_potentials, atom_pair_indices[:,0]) + scatter_sum(coulomb_potentials, atom_pair_indices[:,1])
+    coulomb_per_atom = (scatter_sum(coulomb_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
+                        scatter_sum(coulomb_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
+
+    _store_features(feature_group, raw_feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
 
     # calculate vanderwaals potentials
-    average_sigmas = 0.5 * (sigmas0 - sigmas1)
+    average_sigmas = 0.5 * (sigmas0 + sigmas1)
     average_epsilons = torch.sqrt(epsilons0 * epsilons1)
 
-    indices_tooclose = (distances < VANDERWAALS_DISTANCE_ON)
-    indices_toofar = (distances > VANDERWAALS_DISTANCE_OFF)
+    indices_tooclose = (distances < VANDERWAALS_DISTANCE_ON).nonzero()
+    indices_toofar = (distances > VANDERWAALS_DISTANCE_OFF).nonzero()
 
     vanderwaals_prefactors = (torch.pow(SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances, 2) *
                               (SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances - 3 *
                               (SQUARED_VANDERWAALS_DISTANCE_ON - squared_distances)) /
-                              torch.pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3))
+                              pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3))
     vanderwaals_prefactors[indices_tooclose] = 0.0
     vanderwaals_prefactors[indices_toofar] = 1.0
 
     vanderwaals_potentials = 4.0 * average_epsilons * torch.pow(average_sigmas / distances, 12) - torch.pow(average_sigmas / distances, 6) * vanderwaals_prefactors
 
     # sum per atom
-    vanderwaals_sums_per_atom_index = scatter_sum(vanderwaals_potentials, atom_pair_indices[:,0]) + scatter_sum(vanderwaals_potentials, atom_pair_indices[:,1])
+    vanderwaals_per_atom = (scatter_sum(vanderwaals_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
+                            scatter_sum(vanderwaals_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
+
+    _store_features(feature_group, raw_feature_group, VANDERWAALS_FEATURE_NAME, atoms, vanderwaals_per_atom)

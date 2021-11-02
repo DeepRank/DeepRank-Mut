@@ -2,23 +2,10 @@ import re
 import logging
 from enum import Enum
 
-from deeprank.models.patch import PatchActionType
+from deeprank.models.forcefield.patch import PatchActionType, PatchSelection, PatchAction
 
 
 _log = logging.getLogger(__name__)
-
-
-class PatchSelection:
-    def __init__(self, residue_type, atom_name):
-        self.residue_type = residue_type
-        self.atom_name = atom_name
-
-
-class PatchAction:
-    def __init__(self, type_, selection, kwargs):
-        self.type = type_
-        self.selection = selection
-        self.kwargs = kwargs
 
 
 class PatchParser:
