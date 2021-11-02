@@ -48,7 +48,7 @@ DEFAULT_LOGGING = {
     'loggers': {
         'deeprank': {
             'handlers': ['stdout', 'stderr', 'debug'],
-            'level': 'DEBUG',
+            'level': 'INFO',
         },
     }
 }
