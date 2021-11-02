@@ -1,0 +1,6 @@
+Bootstrap: docker
+From: python:3.8
+
+%post
+    apt update && apt install -y openmpi-bin openmpi-common openssh-client openssh-server libopenmpi-dev
+    pip install --no-cache-dir -r requirements
