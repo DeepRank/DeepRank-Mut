@@ -3,6 +3,7 @@ import logging
 
 import numpy
 
+from deeprank.models.forcefield.param import VanderwaalsParam
 from deeprank.models.forcefield.patch import PatchActionType
 from deeprank.parse.forcefield.top import TopParser
 from deeprank.parse.forcefield.patch import PatchParser
@@ -44,6 +45,8 @@ class AtomicForcefield:
 
     def get_vanderwaals_parameters(self, atom):
         type_ = self._get_type(atom)
+        if type_ is None:
+            return VanderwaalsParam(0.0, 0.0, 0.0, 0.0)
 
         return self._vanderwaals_parameters[type_]
 
@@ -68,7 +71,8 @@ class AtomicForcefield:
                     type_ = action["TYPE"]
 
         if type_ is None:
-            raise ValueError("not mentioned in top or patch: {}".format(top_key))
+            _log.warning("not mentioned in top or patch: {}".format(top_key))
+            return None
 
         return type_
 
@@ -99,7 +103,8 @@ class AtomicForcefield:
                     charge = float(action["CHARGE"])
 
         if charge is None:
-            raise ValueError("not mentioned in top or patch: {}".format(top_key))
+            _log.warning("not mentioned in top or patch: {}".format(top_key))
+            return 0.0
 
         return charge
 
