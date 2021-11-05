@@ -46,17 +46,46 @@ def test_forcefield():
     charge = atomic_forcefield.get_charge(_find_atom(atoms, "A", 13, "CZ"))
     eq_(charge, 0.0)
 
-    # Check that the vanderwaals parameters are all within the 0.0 - 4.0 range
+    # Check that the vanderwaals parameters are all within the 0.0 ... 4.0 range
     for atom in atoms:
         p = atomic_forcefield.get_vanderwaals_parameters(atom)
 
         min_ = 0.0
         max_ = 4.0
 
-        ok_(p.inter_epsilon > min_ and p.inter_epsilon < max_)
-        ok_(p.inter_sigma > min_ and p.inter_sigma < max_)
-        ok_(p.intra_epsilon > min_ and p.intra_epsilon < max_)
-        ok_(p.intra_sigma > min_ and p.intra_sigma < max_)
+        ok_(p.inter_epsilon >= min_ and p.inter_epsilon <= max_)
+        ok_(p.inter_sigma >= min_ and p.inter_sigma <= max_)
+        ok_(p.intra_epsilon >= min_ and p.intra_epsilon <= max_)
+        ok_(p.intra_sigma >= min_ and p.intra_sigma <= max_)
+
+
+def test_forcefield_on_missing_parameters():
+
+    pdb_path = "test/data/1MEY.pdb"  # this structure has nucleic acid residues
+
+    variant = PdbVariantSelection(pdb_path, "A", None, None, None)  # don't care about the amino acid change
+
+    pdb = pdb2sql(pdb_path)
+    try:
+        atoms = get_atoms(pdb)
+    finally:
+        pdb._close()
+
+    # Check that the vanderwaals parameters are all within the 0.0 ... 4.0 range
+    # Charges should be between -1.5 ... +1.5
+    for atom in atoms:
+        p = atomic_forcefield.get_vanderwaals_parameters(atom)
+
+        min_ = 0.0
+        max_ = 4.0
+
+        ok_(p.inter_epsilon >= min_ and p.inter_epsilon <= max_)
+        ok_(p.inter_sigma >= min_ and p.inter_sigma <= max_)
+        ok_(p.intra_epsilon >= min_ and p.intra_epsilon <= max_)
+        ok_(p.intra_sigma >= min_ and p.intra_sigma <= max_)
+
+        c = atomic_forcefield.get_charge(atom)
+        ok_(c >= -1.5 and c <= 1.5)
 
 
 def _compute_features(variant):
@@ -82,19 +111,21 @@ def _compute_features(variant):
 
 
 def test_computed_features():
-    pdb_path = "test/1AK4/native/1AK4.pdb"
 
-    variant = PdbVariantSelection(pdb_path, 'C', 25, 'F', 'A')
+    variants = [PdbVariantSelection("test/1AK4/native/1AK4.pdb", "C", 25, "F", "A"),
+                PdbVariantSelection("test/data/1MEY.pdb", "C", 10, "C", "A")]
 
-    charge_data, coulomb_data, vanderwaals_data = _compute_features(variant)
+    for variant in variants:
 
-    # Expected: x, y, z, value (=4)
-    ok_(vanderwaals_data.size > 0)
-    assert(vanderwaals_data.shape[1] == 4), "unexpected vanderwaals shape {}".format(vanderwaals_data.shape)
-    ok_(coulomb_data.size > 0)
-    assert(coulomb_data.shape[1] == 4), "unexpected coulomb shape {}".format(coulomb_data.shape)
-    ok_(charge_data.size > 0)
-    assert(charge_data.shape[1] == 4), "unexpected charge shape {}".format(charge_data.shape)
+        charge_data, coulomb_data, vanderwaals_data = _compute_features(variant)
+
+        # Expected: x, y, z, value (=4)
+        ok_(vanderwaals_data.size > 0)
+        assert(vanderwaals_data.shape[1] == 4), "unexpected vanderwaals shape {}".format(vanderwaals_data.shape)
+        ok_(coulomb_data.size > 0)
+        assert(coulomb_data.shape[1] == 4), "unexpected coulomb shape {}".format(coulomb_data.shape)
+        ok_(charge_data.size > 0)
+        assert(charge_data.shape[1] == 4), "unexpected charge shape {}".format(charge_data.shape)
 
 
 def _create_pdb(contents):
