@@ -111,19 +111,21 @@ def _compute_features(variant):
 
 
 def test_computed_features():
-    pdb_path = "test/1AK4/native/1AK4.pdb"
 
-    variant = PdbVariantSelection(pdb_path, 'C', 25, 'F', 'A')
+    variants = [PdbVariantSelection("test/1AK4/native/1AK4.pdb", "C", 25, "F", "A"),
+                PdbVariantSelection("test/data/1MEY.pdb", "C", 10, "C", "A")]
 
-    charge_data, coulomb_data, vanderwaals_data = _compute_features(variant)
+    for variant in variants:
 
-    # Expected: x, y, z, value (=4)
-    ok_(vanderwaals_data.size > 0)
-    assert(vanderwaals_data.shape[1] == 4), "unexpected vanderwaals shape {}".format(vanderwaals_data.shape)
-    ok_(coulomb_data.size > 0)
-    assert(coulomb_data.shape[1] == 4), "unexpected coulomb shape {}".format(coulomb_data.shape)
-    ok_(charge_data.size > 0)
-    assert(charge_data.shape[1] == 4), "unexpected charge shape {}".format(charge_data.shape)
+        charge_data, coulomb_data, vanderwaals_data = _compute_features(variant)
+
+        # Expected: x, y, z, value (=4)
+        ok_(vanderwaals_data.size > 0)
+        assert(vanderwaals_data.shape[1] == 4), "unexpected vanderwaals shape {}".format(vanderwaals_data.shape)
+        ok_(coulomb_data.size > 0)
+        assert(coulomb_data.shape[1] == 4), "unexpected coulomb shape {}".format(coulomb_data.shape)
+        ok_(charge_data.size > 0)
+        assert(charge_data.shape[1] == 4), "unexpected charge shape {}".format(charge_data.shape)
 
 
 def _create_pdb(contents):
