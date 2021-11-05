@@ -250,7 +250,8 @@ def get_conservation_data(hdf5_path, protein_variant_mapping):
     conservation_table = pandas.read_hdf(hdf5_path, "conservation")
 
     for protein_ac, residue_number, variant in protein_variant_mapping:
-      protein_section = conservation_table[conservation_table["accession"].apply(lambda x: x == protein_ac)]
+        
+        protein_section = conservation_table[conservation_table["accession"].apply(lambda x: x == protein_ac)]
 
         if len(protein_section) < residue_number:
             _log.warning("{} residue {} was given, but found only {} rows for this protein".format(protein_ac, residue_number, len(protein_section)))
