@@ -332,11 +332,11 @@ class DataGenerator(object):
                             f'{"":4s}Generated subgroup "grid_points"'
                             f' to store grid box center.')
 
-                except Exception as ex:
+                except:
 
                     grid_error_flag = True
                     self.grid_error += [variant_name]
-                    self.logger.exception(ex)
+                    self.logger.exception(traceback.format_exc())
                     if remove_error:
                         continue
 
@@ -1464,7 +1464,8 @@ class DataGenerator(object):
             try:
                 feat_module = importlib.import_module(feat, package=None)
                 feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
-            except Exception as ex:
+
+            except:
                 logger.exception("{}: {}".format(feat, traceback.format_exc()))
                 error_flag = True
 
