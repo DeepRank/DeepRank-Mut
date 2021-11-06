@@ -87,9 +87,9 @@ def test_skip_error():
 
     tmp_dir = mkdtemp()
 
-    # Use one correct pdb file
-    pdb_path = "test/101m.pdb"
-    variants = [PdbVariantSelection(pdb_path, 'A', 25, glycine, alanine)]
+    # Use one correct pdb file and one wrong pdb file
+    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine),
+                PdbVariantSelection("test/data/wrng.pdb", "A", 1, glycine, alanine)]
 
     # These classes are made for testing, they give meaningless numbers.
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
@@ -97,13 +97,6 @@ def test_skip_error():
 
     try:
         hdf5_path = os.path.join(tmp_dir, "test.hdf5")
-
-        # make an empty pdb
-        empty_pdb_path = os.path.join(tmp_dir, "empt.pdb")
-        with open(empty_pdb_path, 'wt') as f:
-            f.write("<empty>\n")
-
-        variants.append(PdbVariantSelection(empty_pdb_path, 'A', 1, glycine, alanine))
 
         data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
         data_generator.create_database()
