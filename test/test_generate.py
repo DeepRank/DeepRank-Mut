@@ -95,6 +95,9 @@ def test_skip_error():
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
     target_names = ["test.target.target1"]
 
+    number_of_points = 30
+    resolution = 1.0
+    atomic_densities = {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}
     grid_info = {
         'number_of_points': [number_of_points, number_of_points, number_of_points],
         'resolution': [resolution, resolution, resolution],
