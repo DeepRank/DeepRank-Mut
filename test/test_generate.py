@@ -80,3 +80,39 @@ def test_generate():
                     ok_(target_name in f5[target_path])
     finally:
         shutil.rmtree(tmp_dir)
+
+
+def test_skip_error():
+    "preprocessing should continue if only one variant raises an error"
+
+    tmp_dir = mkdtemp()
+
+    # Use one correct pdb file
+    pdb_path = "test/101m.pdb"
+    variants = [PdbVariantSelection(pdb_path, 'A', 25, glycine, alanine)]
+
+    # These classes are made for testing, they give meaningless numbers.
+    feature_names = ["test.feature.feature1", "test.feature.feature2"]
+    target_names = ["test.target.target1"]
+
+    try:
+        hdf5_path = os.path.join(tmp_dir, "test.hdf5")
+
+        # make an empty pdb
+        empty_pdb_path = os.path.join(tmp_dir, "empt.pdb")
+        with open(empty_pdb_path, 'wt') as f:
+            f.write("<empty>\n")
+
+        variants.append(PdbVariantSelection(empty_pdb_path, 'A', 1, glycine, alanine))
+
+        data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
+        data_generator.create_database()
+        data_generator.map_features(grid_info)
+
+        # Check that the output file is not empty
+        with h5py.File(hdf5_path, 'r') as f5:
+            ok_(len(f5.keys()) > 0)
+
+    finally:
+        shutil.rmtree(tmp_dir)
+
