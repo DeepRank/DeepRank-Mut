@@ -95,9 +95,15 @@ def test_skip_error():
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
     target_names = ["test.target.target1"]
 
-    try:
-        hdf5_path = os.path.join(tmp_dir, "test.hdf5")
+    grid_info = {
+        'number_of_points': [number_of_points, number_of_points, number_of_points],
+        'resolution': [resolution, resolution, resolution],
+        'atomic_densities': atomic_densities,
+    }
 
+    hdf5_path = os.path.join(tmp_dir, "test.hdf5")
+
+    try:
         data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
         data_generator.create_database()
         data_generator.map_features(grid_info)
