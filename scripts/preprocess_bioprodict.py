@@ -30,6 +30,7 @@ from deeprank.generate import DataGenerator
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
 from deeprank.domain.amino_acid import amino_acids
+from deeprank.operate.pdb import is_xray
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -87,6 +88,19 @@ def get_pssm_paths(pssm_root, pdb_ac):
 
     paths = glob(os.path.join(pssm_root, "%s/pssm/%s.?.pdb.pssm" % (pdb_ac.lower(), pdb_ac.lower())))
     return {os.path.basename(path).split('.')[1]: path for path in paths}
+
+
+def pdb_meets_criteria(pdb_path):
+    if not os.path.isfile(pdb_path):
+        _log.warning("no such pdb: {}".format(pdb_path))
+        return False
+
+    with open(pdb_path, 'rt') as f:
+        if not is_xray(f):
+            _log.warning("not an x-ray pdb: {}".format(pdb_path))
+            return False
+
+    return True
 
 
 # in conservation table:
@@ -182,8 +196,7 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
             pdb_ac = pdb_ac[:4]
 
             pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-            if not os.path.isfile(pdb_path):
-                _log.warning("no such pdb: {}".format(pdb_path))
+            if not pdb_meets_criteria(pdb_path):
                 continue
 
             pssm_paths = get_pssm_paths(pssm_root, pdb_ac)

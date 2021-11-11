@@ -5,7 +5,16 @@ import os
 from pdb2sql import pdb2sql
 from nose.tools import ok_
 
-from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_atoms
+from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_atoms, is_xray
+
+
+def test_xray():
+    for path in ["test/101M.pdb", "test/1CRN.pdb", "test/data/1MEY.pdb"]:
+        with open(path, 'rt') as f:
+            assert is_xray(f), "{} is not identified as x-ray".format(path)
+
+    with open("test/data/1a6b.pdb", 'rt') as f:
+        assert not is_xray(f), "1a6b was identified as x-ray"
 
 
 def test_get_atoms():
