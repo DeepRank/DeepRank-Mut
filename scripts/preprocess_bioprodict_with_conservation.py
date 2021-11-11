@@ -31,7 +31,7 @@ from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
 from deeprank.domain.amino_acid import amino_acids
 from deeprank.operate.hdf5data import load_variant
-from deeprank.operate.pdb import get_atoms
+from deeprank.operate.pdb import get_atoms, is_xray
 from deeprank.features.neighbour_profile import WT_FEATURE_NAME, VAR_FEATURE_NAME
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -54,6 +54,19 @@ mpi_comm = MPI.COMM_WORLD
 feature_modules = ["deeprank.features.atomic_contacts",
                    "deeprank.features.accessibility"]
 target_modules = ["deeprank.targets.variant_class"]
+
+
+def pdb_meets_criteria(pdb_path):
+    if not os.path.isfile(pdb_path):
+        _log.warning("no such pdb: {}".format(pdb_path))
+        return False
+
+    with open(pdb_path, 'rt') as f:
+        if not is_xray(f):
+            _log.warning("not an x-ray pdb: {}".format(pdb_path))
+            return False
+
+    return True
 
 
 def preprocess(variants, hdf5_path, data_augmentation, grid_info, conservations):
@@ -213,8 +226,7 @@ def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
             pdb_ac = pdb_ac[:4]
 
             pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-            if not os.path.isfile(pdb_path):
-                _log.warning("no such pdb: {}".format(pdb_path))
+            if not pdb_meets_criteria(pdb_path):
                 continue
 
             protein_ac = row['protein_accession']
