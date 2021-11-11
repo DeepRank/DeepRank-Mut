@@ -13,7 +13,8 @@ def test_xray():
         with open(path, 'rt') as f:
             assert is_xray(f), "{} is not identified as x-ray".format(path)
 
-    assert not is_xray("test/data/1a6b.pdb"), "1a6b was identified as x-ray"
+    with open("test/data/1a6b.pdb", 'rt') as f:
+        assert not is_xray(f), "1a6b was identified as x-ray"
 
 
 def test_get_atoms():
