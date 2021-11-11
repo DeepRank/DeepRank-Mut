@@ -16,7 +16,7 @@ def is_xray(pdb_file):
     "check that an open pdb file is an x-ray structure"
 
     for line in pdb_file:
-        if line.startswith("EXPDTA") and "X-RAY DIFFRACTION":
+        if line.startswith("EXPDTA") and "X-RAY DIFFRACTION" in line:
             return True
 
     return False
