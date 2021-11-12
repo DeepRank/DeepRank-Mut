@@ -333,10 +333,9 @@ class DataGenerator(object):
                             f' to store grid box center.')
 
                 except:
-
                     grid_error_flag = True
                     self.grid_error += [variant_name]
-                    self.logger.exception(traceback.format_exc())
+                    self.logger.exception("Error while computing center for {}: {}".format(variant, traceback.format_exc()))
                     if remove_error:
                         continue
 
@@ -1129,11 +1128,9 @@ class DataGenerator(object):
                     prog_bar=grid_prog_bar,
                     try_sparse=try_sparse)
 
-            except BaseException:
+            except:
                 self.map_error.append(variant_name)
-                self.logger.exception(
-                    f'Error during the mapping of {variant_name}'+
-                    traceback.format_exc())
+                self.logger.exception("Error during the mapping of {}: {}".format(variant, traceback.format_exc()))
 
         # remove the variants with issues
         if self.map_error:
@@ -1465,8 +1462,13 @@ class DataGenerator(object):
                 feat_module = importlib.import_module(feat, package=None)
                 feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
 
+                for feature_key in featgrp:
+                    if np.any(np.isnan(featgrp[feature_key][()])):
+                        logger.exception("Got NaN output for feature {} for {}".format(feature_key, variant))
+                        error_flag = True
+                        break
             except:
-                logger.exception("{}: {}".format(feat, traceback.format_exc()))
+                logger.exception("Error while computing {} for {}: {}".format(feat, variant, traceback.format_exc()))
                 error_flag = True
 
         return error_flag
