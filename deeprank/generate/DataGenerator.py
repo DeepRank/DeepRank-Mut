@@ -333,7 +333,6 @@ class DataGenerator(object):
                             f' to store grid box center.')
 
                 except:
-
                     grid_error_flag = True
                     self.grid_error += [variant_name]
                     self.logger.exception("Error while computing center for {}: {}".format(variant, traceback.format_exc()))
@@ -1463,6 +1462,11 @@ class DataGenerator(object):
                 feat_module = importlib.import_module(feat, package=None)
                 feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
 
+                for feature_key in featgrp:
+                    if np.any(np.isnan(featgrp[feature_key][()])):
+                        logger.exception("Got NaN output for feature {} for {}".format(feature_key, variant))
+                        error_flag = True
+                        break
             except:
                 logger.exception("Error while computing {} for {}: {}".format(feat, variant, traceback.format_exc()))
                 error_flag = True
