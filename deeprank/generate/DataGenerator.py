@@ -39,7 +39,7 @@ def _printif(string, cond): return print(string) if cond else None
 
 class DataGenerator(object):
 
-    def __init__(self, variants,
+    def __init__(self, environment, variants,
                  align=None,
                  compute_targets=None, compute_features=None,
                  data_augmentation=None, hdf5='database.h5',
@@ -47,6 +47,7 @@ class DataGenerator(object):
         """Generate the data (features/targets/maps) required for deeprank.
 
         Args:
+            environment (Environment): the environment settings
             variants (list(PdbVariantSelection)): the selected variants
             align (dict, optional): Dicitionary to align the compexes,
                                     e.g. align = {"selection":{"chainID":["A","B"]}, "axis":"z"}
@@ -87,6 +88,8 @@ class DataGenerator(object):
             >>>                                            'deeprank.features.neighbour_profile'],
             >>>                          hdf5=h5file)
         """
+
+        self.environment = environment
 
         self.variants = variants
         logger.debug("preprocess with {} variants".format(len(variants)))
@@ -273,7 +276,7 @@ class DataGenerator(object):
                     variant_group.require_group('features_raw')
 
                     feature_error_flag = self._compute_features(self.compute_features,
-                                                                variant_group['complex'][()],
+                                                                self.environment,
                                                                 variant_group['features'],
                                                                 variant_group['features_raw'],
                                                                 variant,
@@ -633,7 +636,7 @@ class DataGenerator(object):
                 variant_group.require_group('features_raw')
 
                 error_flag = self._compute_features(self.compute_features,
-                                                    variant_group['complex'][()],
+                                                    self.environment,
                                                     variant_group['features'],
                                                     variant_group['features_raw'],
                                                     variant,
@@ -878,7 +881,7 @@ class DataGenerator(object):
 
             # compute features
             error_flag = self._compute_features(self.compute_features,
-                                                variant_group['complex'][()],
+                                                self.environment,
                                                 variant_group['features'],
                                                 variant_group['features_raw'],
                                                 variant,
@@ -1440,14 +1443,14 @@ class DataGenerator(object):
 # ====================================================================================
 
     @staticmethod
-    def _compute_features(feat_list, pdb_data, featgrp, featgrp_raw, variant, logger):
+    def _compute_features(feat_list, environment, featgrp, featgrp_raw, variant, logger):
         """Compute the features.
 
         Args:
             feat_list (list(str)): list of function name, e.g.,
                 ['deeprank.features.ResidueDensity',
                 'deeprank.features.PSSM_IC']
-            pdb_data (bytes): PDB translated in bytes
+            environment (Environment): the environment settings
             featgrp (str): name of the group where to store the xyz feature
             featgrp_raw (str): name of the group where to store the raw feature
             variant (PdbVariantSelection): the selected variant
@@ -1460,7 +1463,7 @@ class DataGenerator(object):
         for feat in feat_list:
             try:
                 feat_module = importlib.import_module(feat, package=None)
-                feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
+                feat_module.__compute_feature__(environment, featgrp, featgrp_raw, variant)
 
                 for feature_key in featgrp:
                     if np.any(np.isnan(featgrp[feature_key][()])):

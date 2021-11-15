@@ -2,6 +2,7 @@ import numpy
 import torch
 import torch.cuda
 import logging
+import os
 
 from deeprank.models.pair import Pair
 from deeprank.models.atom import Atom
@@ -10,6 +11,20 @@ from deeprank.config import logger
 
 
 _log = logging.getLogger(__name__)
+
+
+def get_pdb_path(pdb_root, pdb_ac):
+
+    for path in [os.path.join(pdb_root, "{}.pdb".format(pdb_ac.lower())),
+                 os.path.join(pdb_root, "{}.pdb".format(pdb_ac.upper())),
+                 os.path.join(pdb_root, "{}.PDB".format(pdb_ac.upper())),
+                 os.path.join(pdb_root, "pdb{}.ent".format(pdb_ac.lower())),
+                 os.path.join(pdb_root, pdb_ac.lower()[1: 3], "pdb{}.ent".format(pdb_ac.lower()))]:
+
+        if os.path.isfile(path):
+            return path
+
+    raise FileNotFoundError("Cannot find a pdb file for {} in {}".format(pdb_ac, pdb_root))
 
 
 def is_xray(pdb_file):
@@ -38,18 +53,22 @@ def get_atoms(pdb2sql):
     atoms = []
 
     # Iterate over the atom output from pdb2sql
-    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName"
+    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode"
     for row in pdb2sql.get(request_s):
 
         try:
-            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name = row
+            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code = row
         except:
             raise ValueError("Got unexpected row {} for {}".format(row, request_s))
 
+        # We use None as the default insertion code
+        if insertion_code == "":
+            insertion_code = None
+
         # Make sure that the residue is in the working directory:
-        residue_id = (chain_id, residue_number)
+        residue_id = (chain_id, residue_number, insertion_code)
         if residue_id not in residues:
-            residues[residue_id] = Residue(int(residue_number), residue_name, chain_id)
+            residues[residue_id] = Residue(int(residue_number), residue_name, chain_id, insertion_code)
 
         # Turn the x,y,z into a vector:
         atom_position = numpy.array([x, y, z])
@@ -76,7 +95,7 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_
     """
 
     if torch.cuda.is_available():
-        device = "gpu"
+        device = "cuda"
     else:
         device = "cpu"
 
