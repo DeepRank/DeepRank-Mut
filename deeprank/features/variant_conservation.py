@@ -1,4 +1,9 @@
+import os
+
+from pdb2sql import pdb2sql
 import pandas
+
+from deeprank.features.FeatureClass import FeatureClass
 
 
 CONSERVATIONS_DIRECTORY_PATH = None  # must be set before running
@@ -25,7 +30,7 @@ WT_FEATURE_NAME = "wildtype_conservation"
 VAR_FEATURE_NAME = "variant_conservation"
 
 
-def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
+def __compute_feature__(_, feature_group, raw_feature_group, variant):
     "this feature module adds amino acid conservation as deeprank features"
 
     if variant.protein_ac is None or variant.protein_residue_number is None:
@@ -33,9 +38,9 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
 
     # Get conservations data from file:
     conservations_dataframe = get_conservations_dataframe(variant.protein_ac)
-    residue_row = conservations_dataframe.iloc[variant.protein_residue_number]
-    wildtype_conservation = residue_row["sub_consv_{}".format(variant.wildtype_amino_acid.letter)
-    variant_conservation = residue_row["sub_consv_{}".format(variant.variant_amino_acid.letter)
+    residue_row = conservations_dataframe.iloc[variant.protein_residue_number - 1]
+    wildtype_conservation = residue_row["sub_consv_{}".format(variant.wildtype_amino_acid.letter)]
+    variant_conservation = residue_row["sub_consv_{}".format(variant.variant_amino_acid.letter)]
 
     # Get the C-alpha position to store the feature with:
     c_alpha_position = get_c_alpha_pos(variant)
@@ -44,7 +49,7 @@ def __compute_feature__(pdb_data, feature_group, raw_feature_group, variant):
     # Store features:
     feature_object = FeatureClass("Residue")
     feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wildtype_conservation]}
-    feature_object.feature_data_xyz[VAR_FEATURE_NAME = {xyz_key: [variant_conservation]}
+    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {xyz_key: [variant_conservation]}
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
