@@ -1,10 +1,12 @@
 import os
+import sys
 import unittest
 from time import time
 import shutil
 from tempfile import mkdtemp
 import logging
 
+from unittest.mock import patch, MagicMock
 import numpy
 import h5py
 from nose.tools import eq_, ok_
@@ -119,3 +121,48 @@ def test_skip_error():
     finally:
         shutil.rmtree(tmp_dir)
 
+
+def test_skip_nan():
+    "NaN features should not be added to the preprocessing"
+
+    number_of_points = 20
+
+    nan_dict = {}
+    for feature_name in ["feature1", "feature2"]:
+
+        grid = numpy.empty((number_of_points, number_of_points, number_of_points))
+        grid[:] = numpy.nan
+
+        nan_dict[feature_name] = grid
+
+    from deeprank.generate.GridTools import GridTools
+
+    GridTools.map_features = MagicMock(return_value=nan_dict)
+
+    tmp_dir = mkdtemp()
+
+    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine)]
+
+    feature_names = ["test.feature.feature1", "test.feature.feature2"]
+    target_names = ["test.target.target1"]
+
+    resolution = 1.0
+    atomic_densities = {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}
+    grid_info = {
+        'number_of_points': [number_of_points, number_of_points, number_of_points],
+        'resolution': [resolution, resolution, resolution],
+        'atomic_densities': atomic_densities,
+    }
+
+    hdf5_path = os.path.join(tmp_dir, "test.hdf5")
+
+    try:
+        data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
+        data_generator.create_database()
+        data_generator.map_features(grid_info)
+
+        # Check that the output file is empty, since nan entries don't belong in the output.
+        with h5py.File(hdf5_path, 'r') as f5:
+            ok_(len(f5.keys()) == 0)
+    finally:
+        shutil.rmtree(tmp_dir)
