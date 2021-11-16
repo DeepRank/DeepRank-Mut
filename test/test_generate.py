@@ -122,7 +122,8 @@ def test_skip_error():
         shutil.rmtree(tmp_dir)
 
 
-def test_skip_nan():
+@patch("deeprank.generate.GridTools.map_features")
+def test_skip_nan(mock_map_features):
     "NaN features should not be added to the preprocessing"
 
     number_of_points = 20
@@ -135,9 +136,7 @@ def test_skip_nan():
 
         nan_dict[feature_name] = grid
 
-    from deeprank.generate.GridTools import GridTools
-
-    GridTools.map_features = MagicMock(return_value=nan_dict)
+    mock_map_features.return_value = nan_dict
 
     tmp_dir = mkdtemp()
 
