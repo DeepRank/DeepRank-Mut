@@ -16,6 +16,7 @@ from deeprank import config
 from deeprank.config import logger
 from deeprank.generate import GridTools as gt
 from deeprank.operate import hdf5data
+from deeprank.operate.pdb import get_pdb_path
 
 import pdb2sql
 from pdb2sql.align import align as align_along_axis
@@ -39,7 +40,7 @@ def _printif(string, cond): return print(string) if cond else None
 
 class DataGenerator(object):
 
-    def __init__(self, variants,
+    def __init__(self, environment, variants,
                  align=None,
                  compute_targets=None, compute_features=None,
                  data_augmentation=None, hdf5='database.h5',
@@ -47,6 +48,7 @@ class DataGenerator(object):
         """Generate the data (features/targets/maps) required for deeprank.
 
         Args:
+            environment (Environment): the environment settings
             variants (list(PdbVariantSelection)): the selected variants
             align (dict, optional): Dicitionary to align the compexes,
                                     e.g. align = {"selection":{"chainID":["A","B"]}, "axis":"z"}
@@ -68,7 +70,7 @@ class DataGenerator(object):
             >>> from deeprank.models.variant import *
             >>> from deeprank.domain.amino_acid import *
             >>> # sources to assemble the data base
-            >>> variant = PdbVariantSelection(pdb_path="1AK4.pdb",
+            >>> variant = PdbVariantSelection(pdb_ac="1AK4",
             >>>                               chain_id="C",
             >>>                               residue_number=10,
             >>>                               wild_type_amino_acid=isoleucine,
@@ -87,6 +89,8 @@ class DataGenerator(object):
             >>>                                            'deeprank.features.neighbour_profile'],
             >>>                          hdf5=h5file)
         """
+
+        self.environment = environment
 
         self.variants = variants
         logger.debug("preprocess with {} variants".format(len(variants)))
@@ -207,7 +211,9 @@ class DataGenerator(object):
 
         for variant in variant_tqdm:
 
-            variant_tqdm.set_postfix(variant=os.path.basename(variant.pdb_path))
+            pdb_path = get_pdb_path(self.environment.pdb_root, variant.pdb_ac)
+
+            variant_tqdm.set_postfix(variant=os.path.basename(pdb_path))
             variant_name = hdf5data.get_variant_group_name(variant)
             self.logger.info(f'\nProcessing variant: {variant_name}')
 
@@ -236,7 +242,7 @@ class DataGenerator(object):
                 # check if we have a decoy or native
                 # and find the reference
                 if variant_name == bare_variant_name:
-                    ref = variant.pdb_path
+                    ref = pdb_path
                 else:
                     ref = None
 
@@ -246,7 +252,7 @@ class DataGenerator(object):
                 hdf5data.store_variant(variant_group, variant)
 
                 # add the ref and the complex
-                self._add_pdb(variant_group, variant.pdb_path, 'complex')
+                self._add_pdb(variant_group, pdb_path, 'complex')
                 if ref is not None:
                     self._add_pdb(variant_group, ref, 'native')
 
@@ -273,7 +279,7 @@ class DataGenerator(object):
                     variant_group.require_group('features_raw')
 
                     feature_error_flag = self._compute_features(self.compute_features,
-                                                                variant_group['complex'][()],
+                                                                self.environment,
                                                                 variant_group['features'],
                                                                 variant_group['features_raw'],
                                                                 variant,
@@ -382,7 +388,7 @@ class DataGenerator(object):
                     # create the new pdb and get molecule center
                     # molecule center is the origin of rotation)
                     mol_center = self._add_aug_pdb(
-                        variant_group, variant.pdb_path, 'complex', axis, angle)
+                        variant_group, pdb_path, 'complex', axis, angle)
 
                     # copy the targets/features
                     if 'targets' in self.f5[variant_name]:
@@ -633,7 +639,7 @@ class DataGenerator(object):
                 variant_group.require_group('features_raw')
 
                 error_flag = self._compute_features(self.compute_features,
-                                                    variant_group['complex'][()],
+                                                    self.environment,
                                                     variant_group['features'],
                                                     variant_group['features_raw'],
                                                     variant,
@@ -878,7 +884,7 @@ class DataGenerator(object):
 
             # compute features
             error_flag = self._compute_features(self.compute_features,
-                                                variant_group['complex'][()],
+                                                self.environment,
                                                 variant_group['features'],
                                                 variant_group['features_raw'],
                                                 variant,
@@ -895,7 +901,9 @@ class DataGenerator(object):
     def _get_grid_center(self, variant):
         "gets the C-alpha position of the variant residue"
 
-        sqldb = pdb2sql.interface(variant.pdb_path)
+        pdb_path = get_pdb_path(self.environment.pdb_root, variant.pdb_ac)
+
+        sqldb = pdb2sql.interface(pdb_path)
         try:
             c_alpha_position = sqldb.get("x,y,z",
                                          chainID=variant.chain_id,
@@ -936,7 +944,8 @@ class DataGenerator(object):
             variant = hdf5data.load_variant(f5[variant_name])
 
             # compute the data we want on the grid
-            gt.GridTools(variant_group=f5[variant_name], variant=variant,
+            gt.GridTools(environment=self.environment,
+                         variant_group=f5[variant_name], variant=variant,
                          number_of_points=grid_info['number_of_points'],
                          resolution=grid_info['resolution'],
                          contact_distance=contact_distance,
@@ -1112,6 +1121,7 @@ class DataGenerator(object):
             try:
                 # compute the data we want on the grid
                 gt.GridTools(
+                    environment=self.environment,
                     variant_group=f5[variant_name],
                     variant=variant,
                     number_of_points=grid_info['number_of_points'],
@@ -1440,14 +1450,14 @@ class DataGenerator(object):
 # ====================================================================================
 
     @staticmethod
-    def _compute_features(feat_list, pdb_data, featgrp, featgrp_raw, variant, logger):
+    def _compute_features(feat_list, environment, featgrp, featgrp_raw, variant, logger):
         """Compute the features.
 
         Args:
             feat_list (list(str)): list of function name, e.g.,
                 ['deeprank.features.ResidueDensity',
                 'deeprank.features.PSSM_IC']
-            pdb_data (bytes): PDB translated in bytes
+            environment (Environment): the environment settings
             featgrp (str): name of the group where to store the xyz feature
             featgrp_raw (str): name of the group where to store the raw feature
             variant (PdbVariantSelection): the selected variant
@@ -1460,7 +1470,7 @@ class DataGenerator(object):
         for feat in feat_list:
             try:
                 feat_module = importlib.import_module(feat, package=None)
-                feat_module.__compute_feature__(pdb_data, featgrp, featgrp_raw, variant)
+                feat_module.__compute_feature__(environment, featgrp, featgrp_raw, variant)
 
                 for feature_key in featgrp:
                     if np.any(np.isnan(featgrp[feature_key][()])):

@@ -10,7 +10,8 @@ from pdb2sql import pdb2sql
 from deeprank.features.atomic_contacts import __compute_feature__
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.forcefield import atomic_forcefield
-from deeprank.operate.pdb import get_atoms
+from deeprank.operate.pdb import get_atoms, get_pdb_path
+from deeprank.models.environment import Environment
 
 
 def _find_atom(atoms, chain_id, residue_number, atom_name):
@@ -21,9 +22,11 @@ def _find_atom(atoms, chain_id, residue_number, atom_name):
 
 def test_forcefield():
 
-    pdb_path = "test/1CRN.pdb"
-    variant = PdbVariantSelection(pdb_path, "A", None, None, None)  # don't care about the amino acid change
+    environment = Environment(pdb_root="test/data/pdb")
 
+    variant = PdbVariantSelection("1CRN", "A", None, None, None)  # don't care about the amino acid change
+
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
     pdb = pdb2sql(pdb_path)
     try:
         atoms = get_atoms(pdb)
@@ -61,10 +64,13 @@ def test_forcefield():
 
 def test_forcefield_on_missing_parameters():
 
-    pdb_path = "test/data/1MEY.pdb"  # this structure has nucleic acid residues
+    environment = Environment(pdb_root="test/data/pdb")
 
-    variant = PdbVariantSelection(pdb_path, "A", None, None, None)  # don't care about the amino acid change
+    # this structure has nucleic acid residues
+    # don't care about the amino acid change
+    variant = PdbVariantSelection("1MEY", "A", None, None, None)
 
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
     pdb = pdb2sql(pdb_path)
     try:
         atoms = get_atoms(pdb)
@@ -88,7 +94,7 @@ def test_forcefield_on_missing_parameters():
         ok_(c >= -1.5 and c <= 1.5)
 
 
-def _compute_features(variant):
+def _compute_features(environment, variant):
 
     tmp_path = tempfile.mkdtemp()
     try:
@@ -99,7 +105,7 @@ def _compute_features(variant):
             features_group = molgrp.require_group('features')
             raw_group = molgrp.require_group('features_raw')
 
-            __compute_feature__(variant.pdb_path, features_group, raw_group, variant)
+            __compute_feature__(environment, features_group, raw_group, variant)
 
             vanderwaals_data = features_group['vdwaals'][()]
             coulomb_data = features_group['coulomb'][()]
@@ -112,12 +118,14 @@ def _compute_features(variant):
 
 def test_computed_features():
 
-    variants = [PdbVariantSelection("test/1AK4/native/1AK4.pdb", "C", 25, "F", "A"),
-                PdbVariantSelection("test/data/1MEY.pdb", "C", 10, "C", "A")]
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variants = [PdbVariantSelection("101M", "C", 25, "G", "A"),
+                PdbVariantSelection("1MEY", "C", 10, "C", "A")]
 
     for variant in variants:
 
-        charge_data, coulomb_data, vanderwaals_data = _compute_features(variant)
+        charge_data, coulomb_data, vanderwaals_data = _compute_features(environment, variant)
 
         # Expected: x, y, z, value (=4)
         ok_(vanderwaals_data.size > 0)
@@ -128,10 +136,9 @@ def test_computed_features():
         assert(charge_data.shape[1] == 4), "unexpected charge shape {}".format(charge_data.shape)
 
 
-def _create_pdb(contents):
+def _create_pdb(root, ac, contents):
 
-    f, path = tempfile.mkstemp()
-    os.close(f)
+    path = os.path.join(root, "{}.pdb".format(ac))
 
     with open(path, 'wt') as f:
         f.write(contents)
@@ -141,45 +148,47 @@ def _create_pdb(contents):
 
 def test_physics():
 
-    pdb_path_1 = _create_pdb("""
-ATOM      1  OE2 GLU A   1      10.047  10.099   0.625  1.00 13.79           N
-ATOM      2  OE2 GLU A   2      16.967  10.784   0.338  1.00 10.80           C
-    """) # two negative charges at short distance
-
-    pdb_path_2 = _create_pdb("""
-ATOM      1  OE2 GLU A   1       0.047   0.099   0.625  1.00 13.79           N
-ATOM      2  CZ  ARG A   2       8.167   0.184   0.038  1.00 10.80           C
-    """) # two opposite charges at long distance
-
-    pdb_path_3 = _create_pdb("""
-ATOM      1  OE2 GLU A   1      10.047  10.099   0.625  1.00 13.79           N
-ATOM      2  CZ  ARG A   2      16.967  10.784   0.338  1.00 10.80           C
-    """) # two opposite charges at short distance
-
-    pdb_path_4 = _create_pdb("""
-ATOM      1  OE2 GLU A   1       0.047   0.099   0.625  1.00 13.79           N
-ATOM      2  OE2 GLU A   2       8.167   0.184   0.038  1.00 10.80           C
-    """) # two negative charges at long distance
+    tmp_dir = tempfile.mkdtemp()
 
     try:
+        environment = Environment(pdb_root=tmp_dir)
+
+        _create_pdb(tmp_dir, "1TST", """
+ATOM      1  OE2 GLU A   1      10.047  10.099   0.625  1.00 13.79           N
+ATOM      2  OE2 GLU A   2      16.967  10.784   0.338  1.00 10.80           C
+        """) # two negative charges at short distance
+
+        _create_pdb(tmp_dir, "2TST", """
+ATOM      1  OE2 GLU A   1       0.047   0.099   0.625  1.00 13.79           N
+ATOM      2  CZ  ARG A   2       8.167   0.184   0.038  1.00 10.80           C
+        """) # two opposite charges at long distance
+
+        _create_pdb(tmp_dir, "3TST", """
+ATOM      1  OE2 GLU A   1      10.047  10.099   0.625  1.00 13.79           N
+ATOM      2  CZ  ARG A   2      16.967  10.784   0.338  1.00 10.80           C
+        """) # two opposite charges at short distance
+
+        _create_pdb(tmp_dir, "4TST", """
+ATOM      1  OE2 GLU A   1       0.047   0.099   0.625  1.00 13.79           N
+ATOM      2  OE2 GLU A   2       8.167   0.184   0.038  1.00 10.80           C
+        """) # two negative charges at long distance
+
         # not caring about the amino acid changes
 
-        variant = PdbVariantSelection(pdb_path_1, "A", 1, None, None)
-        _, coulomb_data_1, vanderwaals_data_1 = _compute_features(variant)
+        variant = PdbVariantSelection("1TST", "A", 1, None, None)
+        _, coulomb_data_1, vanderwaals_data_1 = _compute_features(environment, variant)
 
-        variant = PdbVariantSelection(pdb_path_2, "A", 1, None, None)
-        _, coulomb_data_2, vanderwaals_data_2 = _compute_features(variant)
+        variant = PdbVariantSelection("2TST", "A", 1, None, None)
+        _, coulomb_data_2, vanderwaals_data_2 = _compute_features(environment, variant)
 
-        variant = PdbVariantSelection(pdb_path_3, "A", 1, None, None)
-        _, coulomb_data_3, vanderwaals_data_3 = _compute_features(variant)
+        variant = PdbVariantSelection("3TST", "A", 1, None, None)
+        _, coulomb_data_3, vanderwaals_data_3 = _compute_features(environment, variant)
 
-        variant = PdbVariantSelection(pdb_path_4, "A", 1, None, None)
-        _, coulomb_data_4, vanderwaals_data_4 = _compute_features(variant)
+        variant = PdbVariantSelection("4TST", "A", 1, None, None)
+        _, coulomb_data_4, vanderwaals_data_4 = _compute_features(environment, variant)
+
     finally:
-        os.remove(pdb_path_1)
-        os.remove(pdb_path_2)
-        os.remove(pdb_path_3)
-        os.remove(pdb_path_4)
+        shutil.rmtree(tmp_dir)
 
     eps = 0.3
     sig = 1.0

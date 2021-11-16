@@ -12,6 +12,8 @@ from deeprank.learn.DataSet import DataSet
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.model3d import cnn_reg
 from deeprank.domain.amino_acid import valine, cysteine
+from deeprank.models.environment import Environment
+
 import deeprank.config
 
 
@@ -28,8 +30,6 @@ def test_learn():
 
     feature_modules = ["test.feature.feature1", "test.feature.feature2"]
     target_modules = ["test.target.target1"]
-    pdb_path = "test/101M.pdb"
-    pssm_paths = {"A": "101M.A.pdb.pssm"}
 
     atomic_densities = {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}
     grid_info = {
@@ -38,7 +38,9 @@ def test_learn():
        'atomic_densities': atomic_densities,
     }
 
-    variant = PdbVariantSelection(pdb_path, "A", 10, valine, cysteine, pssm_paths)
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variant = PdbVariantSelection("101M", "A", 10, valine, cysteine)
 
     work_dir_path = mkdtemp()
     try:
@@ -46,7 +48,7 @@ def test_learn():
 
         # data_augmentation has been set to a high number, so that
         # the train, valid and test set can be large enough.
-        data_generator = DataGenerator([variant], data_augmentation=50,
+        data_generator = DataGenerator(environment, [variant], data_augmentation=50,
                                        compute_targets=target_modules,
                                        compute_features=feature_modules,
                                        hdf5=hdf5_path)

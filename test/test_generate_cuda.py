@@ -4,6 +4,9 @@ import unittest
 from time import time
 
 from deeprank.generate import *
+from deeprank.models.environment import Environment
+from deeprank.models.variant import PdbVariantSelection
+from deeprank.domain.amino_acid import leucine, alanine, histidine
 
 try:
     import pycuda
@@ -19,25 +22,23 @@ class TestGenerateCUDA(unittest.TestCase):
     gpu_block = [8, 8, 8]
     h5file = '1ak4_cuda.hdf5'
 
-    # sources to assemble the data base
-    pdb_source = ['./1AK4/decoys/']
-    pdb_native = ['./1AK4/native/']
+    environment = Environment(pdb_root="test/data/pdb",
+                              pssm_root="test/data/pssm")
+
+    variants = [PdbVariantSelection("101M", "A", 9, leucine, alanine),
+                PdbVariantSelection("101M", "A", 12, histidine, alanine)]
+
 
     @unittest.skipIf(skip, "torch fails on Travis")
     def test_generate_cuda(self):
 
         # init the data assembler
-        database = DataGenerator(
-            chain1='C',
-            chain2='D',
-            pdb_source=self.pdb_source,
-            pdb_native=self.pdb_native,
-            pssm_source='./1AK4/pssm_new/',
+        database = DataGenerator(environment, variants, None,
             compute_targets=['deeprank.targets.dockQ'],
             compute_features=[
-                'deeprank.features.AtomicFeature',
-                'deeprank.features.PSSM_IC',
-                'deeprank.features.BSA'],
+                'deeprank.features.atomic_contacts',
+                'deeprank.features.neighbour_profile',
+                'deeprank.features.accessibility'],
             hdf5=self.h5file)
 
         # map the features

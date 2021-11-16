@@ -14,6 +14,8 @@ from deeprank.generate.GridTools import GridTools
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
 from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, unknown_amino_acid
+from deeprank.models.environment import Environment
+from deeprank.operate.pdb import get_pdb_path
 
 
 _log = logging.getLogger(__name__)
@@ -47,8 +49,9 @@ def test_atomic_contacts_mapping():
         We also mapping these features to the grid and check that this happens correctly.
     """
 
-    pdb_path = "test/101M.pdb"
-    variant = PdbVariantSelection(pdb_path, 'A', 138, phenylalanine, tyrosine)
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variant = PdbVariantSelection("101M", 'A', 138, phenylalanine, tyrosine)
     variant_name = "101M-F138Y"
 
     feature_types = ["vdwaals", "coulomb", "charge"]
@@ -65,12 +68,14 @@ def test_atomic_contacts_mapping():
             feature_group = variant_group.require_group('features')
             raw_feature_group = variant_group.require_group('features_raw')
 
-            compute_contact_feature(pdb_path, feature_group, raw_feature_group, variant)
+            compute_contact_feature(environment, feature_group, raw_feature_group, variant)
 
             for feature_type in feature_types:
                 ok_(feature_type in feature_group)
 
-            sqldb = pdb2sql.interface(variant.pdb_path)
+            pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+
+            sqldb = pdb2sql.interface(pdb_path)
             try:
                 grid_center = sqldb.get("x,y,z", chainID=variant.chain_id,
                                         resSeq=variant.residue_number, name="CA")[0]
@@ -83,7 +88,7 @@ def test_atomic_contacts_mapping():
             points_count = 30
 
             # Build the grid and map the features.
-            gridtools = GridTools(variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant,
                                   number_of_points=points_count, resolution=1.0,
                                   atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
                                   feature=feature_types,
@@ -117,7 +122,9 @@ def test_feature_mapping():
     tmp_dir = mkdtemp()
 
     try:
-        pdb_path = os.path.join(tmp_dir, "%s" % pdb_name)
+        environment = Environment(pdb_root=tmp_dir)
+
+        pdb_path = os.path.join(tmp_dir, "%s.pdb" % pdb_name)
 
         with open(pdb_path, 'wt') as f:
             for line in [
@@ -129,7 +136,7 @@ def test_feature_mapping():
             ]:
                f.write(line) 
 
-        variant = PdbVariantSelection(pdb_path, 'A', 1, unknown_amino_acid, valine)
+        variant = PdbVariantSelection(pdb_name, 'A', 1, unknown_amino_acid, valine)
         variant_name = "1XXX-X1V"
 
         tmp_path = os.path.join(tmp_dir, "test.hdf5")
@@ -155,7 +162,7 @@ def test_feature_mapping():
             points_count = 30
 
             # Build the grid and map the features.
-            gridtools = GridTools(variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant,
                                   number_of_points=points_count, resolution=1.0,
                                   atomic_densities={'C': 1.7},  # only collect density data on carbon
                                   feature=[feature_type_name],

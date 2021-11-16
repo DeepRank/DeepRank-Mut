@@ -14,6 +14,7 @@ from deeprank.models.variant import PdbVariantSelection
 from deeprank.tools.sparse import FLANgrid
 from deeprank.operate import hdf5data
 from deeprank.domain.amino_acid import glycine, alanine, asparagine
+from deeprank.models.environment import Environment
 
 
 _log = logging.getLogger(__name__)
@@ -40,16 +41,18 @@ def test_generate():
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
     target_names = ["test.target.target1"]
 
+    environment = Environment(pdb_root="test/data/pdb")
+
     pdb_path = "test/101m.pdb"
-    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine),
-                PdbVariantSelection("test/data/1eau.pdb", 'A', 72, asparagine, alanine)]
+    variants = [PdbVariantSelection("101m", 'A', 25, glycine, alanine),
+                PdbVariantSelection("1eau", 'A', 72, asparagine, alanine)]
 
     tmp_dir = mkdtemp()
     try:
         hdf5_path = os.path.join(tmp_dir, "data.hdf5")
 
         # Make the class put the data in the HDF5 file:
-        data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
+        data_generator = DataGenerator(environment, variants, None, target_names, feature_names, 1, hdf5_path)
         data_generator.create_database()
         data_generator.map_features(grid_info)
 
@@ -88,9 +91,11 @@ def test_skip_error():
 
     tmp_dir = mkdtemp()
 
+    environment = Environment(pdb_root="test/data/pdb")
+
     # Use one correct pdb file and one wrong pdb file
-    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine),
-                PdbVariantSelection("test/data/wrng.pdb", "A", 1, glycine, alanine)]
+    variants = [PdbVariantSelection("101m", 'A', 25, glycine, alanine),
+                PdbVariantSelection("wrng", "A", 1, glycine, alanine)]
 
     # These classes are made for testing, they give meaningless numbers.
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
@@ -108,7 +113,7 @@ def test_skip_error():
     hdf5_path = os.path.join(tmp_dir, "test.hdf5")
 
     try:
-        data_generator = DataGenerator(variants, None, target_names, feature_names, 1, hdf5_path)
+        data_generator = DataGenerator(environment, variants, None, target_names, feature_names, 1, hdf5_path)
         data_generator.create_database()
         data_generator.map_features(grid_info)
 

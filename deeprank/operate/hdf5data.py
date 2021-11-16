@@ -13,7 +13,7 @@ def get_variant_group_name(variant):
         Returns (str): an unique name for a given variant object
     """
 
-    mol_name = os.path.splitext(os.path.basename(variant.pdb_path))[0]
+    mol_name = os.path.splitext(os.path.basename(variant.pdb_ac))[0]
 
     return "%s-%s" % (mol_name, str(hash(variant)).replace('-', 'm'))
 
@@ -26,10 +26,7 @@ def store_variant(variant_group, variant):
             variant (PdbVariantSelection): the variant object
     """
 
-    variant_group.attrs['pdb_path'] = variant.pdb_path
-
-    for chain_id in variant.get_pssm_chains():
-        variant_group.attrs['pssm_path_%s' % chain_id] = variant.get_pssm_path(chain_id)
+    variant_group.attrs['pdb_ac'] = variant.pdb_ac
 
     variant_group.attrs['variant_chain_id'] = variant.chain_id
 
@@ -41,6 +38,10 @@ def store_variant(variant_group, variant):
     variant_group.attrs['variant_amino_acid_name'] = variant.variant_amino_acid.name
     variant_group.attrs['wild_type_amino_acid_name'] = variant.wild_type_amino_acid.name
 
+    if variant.protein_ac is not None and variant.protein_residue_number is not None:
+        variant_group.attrs["protein_ac"] = variant.protein_ac
+        variant_group.attrs["protein_residue_number"] = variant.protein_residue_number
+
 
 def load_variant(variant_group):
     """ Loads the variant from the HDF5 variant group
@@ -51,13 +52,7 @@ def load_variant(variant_group):
         Returns (PdbVariantSelection): the variant object
     """
 
-    pdb_path = variant_group.attrs['pdb_path']
-
-    pssm_paths_by_chain = {}
-    for attr_name in variant_group.attrs:
-        if attr_name.startswith("pssm_path_"):
-            chain_id = attr_name.split('_')[-1]
-            pssm_paths_by_chain[chain_id] = variant_group.attrs[attr_name]
+    pdb_ac = variant_group.attrs['pdb_ac']
 
     chain_id = variant_group.attrs['variant_chain_id']
 
@@ -73,7 +68,16 @@ def load_variant(variant_group):
     variant_amino_acid = amino_acids_by_name[variant_group.attrs['variant_amino_acid_name']]
     wild_type_amino_acid = amino_acids_by_name[variant_group.attrs['wild_type_amino_acid_name']]
 
-    variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain, insertion_code=insertion_code)
+    if "protein_ac" in variant_group.attrs and "protein_residue_number" in variant_group.attrs:
+        protein_ac = variant_group.attrs["protein_ac"]
+        protein_residue_number = variant_group.attrs["protein_residue_number"]
+    else:
+        protein_ac = None
+        protein_residue_number = None
+
+    variant = PdbVariantSelection(pdb_ac, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid,
+                                  protein_ac=protein_ac, protein_residue_number=protein_residue_number,
+                                  insertion_code=insertion_code)
 
     return variant
 

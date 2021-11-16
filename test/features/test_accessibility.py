@@ -8,9 +8,11 @@ import h5py
 from pdb2sql import pdb2sql
 import numpy
 
+from deeprank.models.environment import Environment
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.accessibility import __compute_feature__, FEATURE_NAME
 from deeprank.domain.amino_acid import valine, threonine
+from deeprank.operate.pdb import get_pdb_path
 
 
 _log = logging.getLogger(__name__)
@@ -27,7 +29,8 @@ def _find_feature_value_by_xyz(position, data):
 
 def test_compute_feature():
 
-    pdb_path = "test/101M.pdb"
+    environment = Environment()
+    environment.pdb_root = "test/data/pdb/"
 
     tmp_dir_path = mkdtemp()
     try:
@@ -35,9 +38,9 @@ def test_compute_feature():
         with h5py.File(hdf5_path, 'w') as f5:
             feature_group = f5.require_group("features")
             raw_feature_group = f5.require_group("raw_features")
-            variant = PdbVariantSelection(pdb_path, 'A', 17, valine, threonine)
+            variant = PdbVariantSelection("101M", 'A', 17, valine, threonine)
 
-            __compute_feature__(variant.pdb_path, feature_group, raw_feature_group, variant)
+            __compute_feature__(environment, feature_group, raw_feature_group, variant)
 
             data = feature_group.get(FEATURE_NAME)
 
@@ -50,6 +53,7 @@ def test_compute_feature():
             # There must be accessible atoms:
             ok_(any([row[3] > 0.0 for row in data]))
 
+            pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
             pdb = pdb2sql(pdb_path)
             try:
                 # Atoms at the surface should have higher SASA than buried atoms

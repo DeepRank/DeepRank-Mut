@@ -9,7 +9,7 @@ from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_atoms, is_x
 
 
 def test_xray():
-    for path in ["test/101M.pdb", "test/1CRN.pdb", "test/data/1MEY.pdb"]:
+    for path in ["test/data/pdb/101M/101M.pdb", "test/data/pdb/1CRN/1CRN.pdb", "test/data/pdb/1MEY/1MEY.pdb"]:
         with open(path, 'rt') as f:
             assert is_xray(f), "{} is not identified as x-ray".format(path)
 
@@ -18,8 +18,7 @@ def test_xray():
 
 
 def test_get_atoms():
-    pdb_path = os.path.join(pkg_resources.resource_filename(__name__, ''),
-                            "../1AK4/native/1AK4.pdb")
+    pdb_path = "test/data/pdb/101M/101M.pdb"
 
     try:
         pdb = pdb2sql(pdb_path)
@@ -51,8 +50,8 @@ def _find_residue(atoms, chain_id, residue_number):
 
 def test_residue_contact_atoms():
 
-    pdb_path = os.path.join(pkg_resources.resource_filename(__name__, ''),
-                            "../1AK4/native/1AK4.pdb")
+    pdb_path = "test/1AK4/native/1AK4.pdb"
+
     chain_id = 'D'
     residue_number = 145
 

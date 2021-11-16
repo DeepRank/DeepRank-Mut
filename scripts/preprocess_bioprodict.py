@@ -10,6 +10,7 @@ from math import isnan
 from glob import glob
 import traceback
 from time import time
+import torch.cuda
 
 import numpy
 import pandas
@@ -31,6 +32,9 @@ from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.config.chemicals import AA_codes_3to1
 from deeprank.domain.amino_acid import amino_acids
 from deeprank.operate.pdb import is_xray
+from deeprank.models.environment import Environment
+from deeprank.feature.neighbour_profile import get_pssm_paths
+from deeprank.feature.variant_conservation import get_conservation_path
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -38,6 +42,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
+arg_parser.add_argument("conservations_root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -57,10 +62,11 @@ feature_modules = ["deeprank.features.atomic_contacts",
 target_modules = ["deeprank.targets.variant_class"]
 
 
-def preprocess(variants, hdf5_path, data_augmentation, grid_info):
+def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info):
     """ Generate the preprocessed data as an hdf5 file
 
         Args:
+            environment (Environment): the environment settings
             variants (list of PdbVariantSelection objects): the variant data
             hdf5_path (str): the output HDF5 path
             data_augmentation (int): the number of data augmentations per variant
@@ -76,21 +82,11 @@ def preprocess(variants, hdf5_path, data_augmentation, grid_info):
     data_generator.map_features(grid_info)
 
 
-def get_pssm_paths(pssm_root, pdb_ac):
-    """ Finds the PSSM files associated with a PDB entry
+def pdb_meets_criteria(pdb_root, pdb_ac):
+    "a set of criteria that every pdb entry should meet"
 
-        Args:
-            pssm_root (str):  path to the directory where the PSSMgen output files are located
-            pdb_ac (str): pdb accession code of the entry of interest
+    pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
 
-        Returns (dict of strings): the PSSM file paths per PDB chain identifier
-    """
-
-    paths = glob(os.path.join(pssm_root, "%s/pssm/%s.?.pdb.pssm" % (pdb_ac.lower(), pdb_ac.lower())))
-    return {os.path.basename(path).split('.')[1]: path for path in paths}
-
-
-def pdb_meets_criteria(pdb_path):
     if not os.path.isfile(pdb_path):
         _log.warning("no such pdb: {}".format(pdb_path))
         return False
@@ -148,13 +144,14 @@ def get_variant_data(parq_path):
     return variant_data
 
 
-def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
+def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data):
     """ read the hdf5 file to map variant data to pdb and pssm data
 
         Args:
             hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
             pdb_root(str): path to the directory where pdbs are stored
             pssm_root(str): path to the directory where pssms are stored
+            conservation_root(str): path to the directory where conservation parquet tables are stored
             variant_data (list((str, VariantClass)): the variant names and classes
 
         Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
@@ -176,9 +173,9 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
         wt_amino_acid_code = swap[:3]
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
-        
+
         variants_section= variant_section.iloc[:20] 
- 
+
         for _, row in variants_section.iterrows():  # each row maps the variant to one pdb entry
 
             pdb_ac = row["pdb_structure"]
@@ -195,8 +192,7 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
             chain_id = pdb_ac[4]
             pdb_ac = pdb_ac[:4]
 
-            pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
-            if not pdb_meets_criteria(pdb_path):
+            if not pdb_meets_criteria(pdb_root, pdb_ac):
                 continue
 
             pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
@@ -204,10 +200,17 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
                 _log.warning("no pssms for {}".format(pdb_ac))
                 continue
 
-            variant = PdbVariantSelection(pdb_path, chain_id, pdb_number,
+            protein_ac = row["protein_accession"]
+            conservation_path = get_conservation_path(conservation_root, protein_ac)
+            if not os.path.isfile(conservation_path):
+                _log.warning("no conservation for {}".format(protein_ac))
+                continue
+
+            variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,
                                           amino_acids_by_code[wt_amino_acid_code],
                                           amino_acids_by_code[var_amino_acid_code],
-                                          pssm_paths, variant_class, insertion_code)
+                                          protein_ac, residue_number,
+                                          variant_class, insertion_code)
 
             _log.debug("adding variant {}".format(variant))
 
@@ -263,12 +266,19 @@ if __name__ == "__main__":
 
     variants_data = get_variant_data(args.variant_path)
 
-    variants = get_pdb_mappings(args.map_path, args.pdb_root, args.pssm_root, variants_data)
+    variants = get_mappings(args.map_path, args.pdb_root, args.pssm_root, args.conservation_root, variants_data)
 
     variants = get_subset(variants)
 
+    if torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, device)
+
     try:
-        preprocess(variants, args.out_path, args.data_augmentation, grid_info)
+        preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info)
     except:
         logger.error(traceback.format_exc())
         raise

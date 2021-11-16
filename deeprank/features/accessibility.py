@@ -6,12 +6,14 @@ import numpy
 
 from deeprank.config import logger
 from deeprank.features import FeatureClass
-from deeprank.operate.pdb import get_residue_contact_atom_pairs
+from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_pdb_path
 
 
-def get_atoms_of_iterest(variant, distance_cutoff):
+def get_atoms_of_iterest(environment, variant, distance_cutoff):
 
-    pdb = pdb2sql(variant.pdb_path)
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+
+    pdb = pdb2sql(pdb_path)
     try:
         atoms = set([])
         for atom1, atom2 in get_residue_contact_atom_pairs(pdb,
@@ -32,14 +34,14 @@ def get_atoms_of_iterest(variant, distance_cutoff):
 FEATURE_NAME = "accessibility"
 
 
-def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
+def __compute_feature__(environment, featgrp, featgrp_raw, variant):
     "computes SASA-based features"
 
     # Let pdb2sql tell us which atoms are around the variant residue:
     distance_cutoff = 10.0
     atoms_keys = set([])
     chain_ids = set([])
-    for atom in get_atoms_of_iterest(variant, distance_cutoff):
+    for atom in get_atoms_of_iterest(environment, variant, distance_cutoff):
         residue_id = str(atom.residue.number)
         if variant.insertion_code is not None:
             residue_id += variant.insertion_code
@@ -50,7 +52,8 @@ def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
         logger.debug("contact atom: {}".format(atom_key))
 
     # Get structure and area data from SASA:
-    structure = freesasa.Structure(variant.pdb_path)
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+    structure = freesasa.Structure(pdb_path)
     result = freesasa.calc(structure)
 
     # Give each chain id a number:

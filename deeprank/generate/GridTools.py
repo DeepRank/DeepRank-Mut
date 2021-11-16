@@ -11,6 +11,7 @@ from deeprank.config import logger
 from deeprank.tools import sparse
 from deeprank.operate.pdb import get_atoms, get_residue_contact_atom_pairs
 from deeprank.operate import hdf5data
+from deeprank.operate.pdb import get_pdb_path
 
 try:
     from tqdm import tqdm
@@ -24,8 +25,8 @@ def logif(string, cond): return logger.info(string) if cond else None
 
 class GridTools(object):
 
-    def __init__(self, variant_group, variant,
-                 number_of_points=30, resolution=1.,
+    def __init__(self, environment, variant_group, variant,
+                 number_of_points=30, resolution=1.0,
                  atomic_densities=None, atomic_densities_mode='ind',
                  feature=None, feature_mode='ind',
                  contact_distance=10.0,
@@ -34,6 +35,7 @@ class GridTools(object):
         """Map the feature of a complex on the grid.
 
         Args:
+            environment(Environment): the invironment settings
             variant_group(str): name of the group of the variant in the HDF5 file.
             variant (PdbVariantSelection): The variant
             number_of_points(int, optional): number of points we want in
@@ -65,6 +67,8 @@ class GridTools(object):
             try_sparse(bool, optional): Try to store the matrix in
                 sparse format (default True).
         """
+
+        self.environment = environment
 
         # variant and hdf5 file
         self.variant_group = variant_group
@@ -212,7 +216,9 @@ class GridTools(object):
     def read_pdb(self):
         """Create a sql databse for the pdb."""
 
-        self.sqldb = pdb2sql.interface(self.variant_group.attrs['pdb_path'])
+        pdb_path = get_pdb_path(self.environment.pdb_root, self.variant_group.attrs['pdb_ac'])
+
+        self.sqldb = pdb2sql.interface(pdb_path)
 
     # get the contact atoms and interface center
     def get_contact_center(self):

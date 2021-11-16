@@ -10,7 +10,7 @@ from torch_scatter import scatter_sum
 
 from deeprank.config import logger
 from deeprank.models.pair import Pair
-from deeprank.operate.pdb import get_atoms
+from deeprank.operate.pdb import get_atoms, get_pdb_path
 from deeprank.features.FeatureClass import FeatureClass
 from deeprank.domain.forcefield import atomic_forcefield
 
@@ -39,13 +39,13 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
     # We're currently not doing anything with the raw features.
 
 
-def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
+def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     """
         For all atoms surrounding the variant, calculate vanderwaals, coulomb and charge features.
         This uses torch for fast computation. The downside of this is that we cannot use python objects.
 
         Args:
-            pdb_path (str): path to the pdb file
+            environment (Environment): the environment settings
             feature_group (hdf5 group): where to store the xyz features
             raw_feature_group (hdf5 group): where to store the raw features (not used)
             variant (PdbVariantSelection): the variant
@@ -53,12 +53,9 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
 
     feature_object = FeatureClass("Atomic")
 
-    if torch.cuda.is_available():
-        device = "gpu"
-    else:
-        device = "cpu"
-
     max_interatomic_distance = 10.0
+
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 
     # get the atoms from the pdb
     pdb = pdb2sql(pdb_path)
@@ -68,10 +65,10 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
         pdb._close()
 
     count_atoms = len(atoms)
-    atom_positions = torch.from_numpy(numpy.array([atom.position for atom in atoms])).to(device)
+    atom_positions = torch.from_numpy(numpy.array([atom.position for atom in atoms])).to(environment.device)
     atoms_in_variant = torch.tensor([atom.residue.number == variant.residue_number and
                                      atom.chain_id == variant.chain_id and
-                                     atom.residue.insertion_code == variant.insertion_code for atom in atoms]).to(device)
+                                     atom.residue.insertion_code == variant.insertion_code for atom in atoms]).to(environment.device)
 
     # calculate euclidean distances
     atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
@@ -139,20 +136,20 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     _store_features(feature_group, raw_feature_group, CHARGE_FEATURE_NAME, atoms, charges_per_atom)
 
     # convert the parameter lists to tensors
-    epsilons0 = torch.tensor(epsilon0_list).to(device)
-    epsilons1 = torch.tensor(epsilon1_list).to(device)
-    sigmas0 = torch.tensor(sigma0_list).to(device)
-    sigmas1 = torch.tensor(sigma1_list).to(device)
-    charges0 = torch.tensor(charges0_list).to(device)
-    charges1 = torch.tensor(charges1_list).to(device)
-    distances = torch.tensor(distances_list).to(device)
+    epsilons0 = torch.tensor(epsilon0_list).to(environment.device)
+    epsilons1 = torch.tensor(epsilon1_list).to(environment.device)
+    sigmas0 = torch.tensor(sigma0_list).to(environment.device)
+    sigmas1 = torch.tensor(sigma1_list).to(environment.device)
+    charges0 = torch.tensor(charges0_list).to(environment.device)
+    charges1 = torch.tensor(charges1_list).to(environment.device)
+    distances = torch.tensor(distances_list).to(environment.device)
     squared_distances = torch.square(distances)
     count_pairs = len(atom_pair_indices)
 
     # calculate coulomb potentials
     coulomb_constant_factor = COULOMB_CONSTANT / EPSILON0
 
-    coulomb_radius_factors = torch.square(torch.ones(count_pairs).to(device) - torch.square(distances / max_interatomic_distance))
+    coulomb_radius_factors = torch.square(torch.ones(count_pairs).to(environment.device) - torch.square(distances / max_interatomic_distance))
 
     coulomb_potentials = charges0 * charges1 * coulomb_constant_factor / distances * coulomb_radius_factors
 
