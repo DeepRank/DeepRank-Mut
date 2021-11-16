@@ -137,5 +137,11 @@ def test_contacts_101m():
 
         assert len(contact_atom_pairs) > 0, "no contacts found"
 
+        for atom1, atom2 in contact_atom_pairs:
+            assert atom1.residue is not None
+            assert len(atom1.residue.atoms) > 0
+
+            assert atom2.residue is not None
+            assert len(atom2.residue.atoms) > 0
     finally:
         pdb._close()

@@ -74,6 +74,7 @@ def get_atoms(pdb2sql):
 
     # Link atoms to residues:
     for (chain_id, residue_number, insertion_code, atom_name), atom in atoms.items():
+        residue_id = (chain_id, residue_number, insertion_code)
         residues[residue_id].atoms.append(atom)
 
     return list(atoms.values())
