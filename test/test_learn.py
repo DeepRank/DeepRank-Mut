@@ -29,7 +29,7 @@ def test_learn():
     feature_modules = ["test.feature.feature1", "test.feature.feature2"]
     target_modules = ["test.target.target1"]
     pdb_path = "test/101M.pdb"
-    pssm_paths = {"A": "101M.A.pdb.pssm"}
+    pssm_paths = {"A": "test/101M.A.pdb.pssm"}
 
     atomic_densities = {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}
     grid_info = {
