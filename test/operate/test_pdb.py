@@ -17,6 +17,27 @@ def test_xray():
         assert not is_xray(f), "1a6b was identified as x-ray"
 
 
+def test_altloc():
+    pdb_path = "test/data/pdb/5MNH/5MNH.pdb"
+
+    try:
+        pdb = pdb2sql(pdb_path)
+
+        atoms = get_atoms(pdb)
+
+    finally:
+        pdb._close()
+
+    selection = [atom for atom in atoms if atom.residue.number == 153 and
+                                           atom.chain_id == "A" and
+                                           atom.name == "CA"]
+
+    assert len(selection) == 1, "got {} of the same atom".format(len(selection))
+
+    # should be altloc C
+    assert selection[0].altloc == 'C', "got atom {} instead".format(selection[0].altloc)
+
+
 def test_get_atoms():
     pdb_path = os.path.join(pkg_resources.resource_filename(__name__, ''),
                             "../1AK4/native/1AK4.pdb")
