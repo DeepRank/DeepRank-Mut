@@ -84,6 +84,7 @@ def test_residue_contact_atoms():
         query_residue = _find_residue(atoms, chain_id, residue_number)
 
         contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, None, 8.5)
+        assert len(contact_atom_pairs) > 0, "no contacts found"
 
         # Check for redundancy (we shouldn't see the same set of atoms twice)
         atom_pairs_encountered = []
@@ -122,3 +123,19 @@ def test_residue_contact_atoms():
 
     ok_(neighbour in contact_atoms)
     ok_(distant not in contact_atoms)
+
+
+def test_contacts_101m():
+    pdb_path = "test/101M.pdb"
+    chain_id = "A"
+
+    residue_number = 25
+
+    pdb = pdb2sql(pdb_path)
+    try:
+        contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, None, 10.0)
+
+        assert len(contact_atom_pairs) > 0, "no contacts found"
+
+    finally:
+        pdb._close()
