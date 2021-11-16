@@ -14,11 +14,11 @@ from deeprank.domain.amino_acid import valine, alanine, glycine, tryptophan
 def test_feature():
     tmp_dir_path = mkdtemp()
 
+    variant = PdbVariantSelection("test/101M.pdb", "A", 25, glycine, tryptophan,
+                                  {'A': "test/101M.A.pdb.pssm"})
+
     try:
         hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
-
-        variant = PdbVariantSelection("test/101M.pdb", "A", 25, glycine, tryptophan,
-                                      {'A': "test/101M.A.pdb.pssm"})
 
         with h5py.File(hdf5_path, 'w') as f5:
             group = f5.require_group("features")

@@ -13,7 +13,7 @@ from deeprank.operate import hdf5data
 from deeprank.generate.GridTools import GridTools
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
-from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, unknown_amino_acid
+from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, aspartate, asparagine, unknown_amino_acid
 
 
 _log = logging.getLogger(__name__)
@@ -98,6 +98,41 @@ def test_atomic_contacts_mapping():
 
                 # Check that the feature is nonzero, at least somewhere on the grid
                 ok_(len(numpy.nonzero(feature_grid)) > 0)
+    finally:
+        shutil.rmtree(tmp_dir)
+
+
+def test_nan():
+    "this variant was reported as NaN-causing"
+
+    pdb_path = "test/data/pdb/5MNH/5MNH.pdb"
+
+    variant = PdbVariantSelection(pdb_path, 'A', 153, aspartate, asparagine)
+    variant_name = "NaN-causing"
+
+    feature_types = ["coulomb"]
+
+    tmp_dir = mkdtemp()
+    try:
+        tmp_path = os.path.join(tmp_dir, "test.hdf5")
+        with h5py.File(tmp_path, 'w') as f5:
+
+            variant_group = f5.require_group(variant_name)
+            variant_group.attrs['type'] = 'variant'
+            hdf5data.store_variant(variant_group, variant)
+
+            feature_group = variant_group.require_group('features')
+            raw_feature_group = variant_group.require_group('features_raw')
+
+            compute_contact_feature(pdb_path, feature_group, raw_feature_group, variant)
+
+            # Build the grid and map the features.
+            gridtools = GridTools(variant_group, variant,
+                                  number_of_points=20, resolution=1.0,
+                                  atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+                                  feature=feature_types,
+                                  contact_distance=8.5,
+                                  try_sparse=False)
     finally:
         shutil.rmtree(tmp_dir)
 
