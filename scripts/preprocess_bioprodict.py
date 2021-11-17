@@ -39,8 +39,8 @@ arg_parser = ArgumentParser(description="Preprocess variants from a parquet file
 arg_parser.add_argument("variant_path", help="the path to the (dataset) variant parquet file")
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
-arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
-arg_parser.add_argument("conservation_root", help="the path to the conservations root directory, containing conservation files per protein")
+arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
+arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -54,14 +54,9 @@ _log = logging.getLogger(__name__)
 
 mpi_comm = MPI.COMM_WORLD
 
-feature_modules = ["deeprank.features.atomic_contacts",
-                   "deeprank.features.accessibility",
-                   "deeprank.features.neighbour_profile",
-                   "deeprank.features.variant_conservation"]
-target_modules = ["deeprank.targets.variant_class"]
 
-
-def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info):
+def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info,
+               feature_modules, target_modules):
     """ Generate the preprocessed data as an hdf5 file
 
         Args:
@@ -70,6 +65,8 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info):
             hdf5_path (str): the output HDF5 path
             data_augmentation (int): the number of data augmentations per variant
             grid_info (dict): the settings for the grid
+            feature_modules (list of strings): names of the feature modules to include
+            target_modules (list of strings): names of the target modules to include
     """
 
     data_generator = DataGenerator(environment, variants,
@@ -175,8 +172,8 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
         Args:
             hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
             pdb_root(str): path to the directory where pdbs are stored
-            pssm_root(str): path to the directory where pssms are stored
-            conservation_root(str): path to the directory where conservation parquet tables are stored
+            pssm_root(str or None): path to the directory where pssms are stored
+            conservation_root(str or None): path to the directory where conservation parquet tables are stored
             variant_data (list((str, VariantClass)): the variant names and classes
 
         Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
@@ -220,11 +217,11 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
             if not pdb_meets_criteria(pdb_root, pdb_ac):
                 continue
 
-            if not has_pssm(pssm_root, pdb_ac):
+            if pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
                 continue
 
             protein_ac = row["protein_accession"]
-            if not has_conservation(conservation_root, protein_ac):
+            if conservation_root is not None and not has_conservation(conservation_root, protein_ac):
                 continue
 
             variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,
@@ -298,8 +295,19 @@ if __name__ == "__main__":
 
     environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, device)
 
+    feature_modules = ["deeprank.features.atomic_contacts",
+                       "deeprank.features.accessibility"]
+    target_modules = ["deeprank.targets.variant_class"]
+
+    if args.conservation_root is not None:
+        feature_modules.append("deeprank.features.variant_conservation")
+
+    if args.pssm_root is not None:
+        feature_modules.append("deeprank.features.neighbour_profile")
+
     try:
-        preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info)
+        preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info,
+                   feature_modules, target_modules)
     except:
         logger.error(traceback.format_exc())
         raise
