@@ -7,12 +7,14 @@ from nose.tools import ok_, eq_
 
 from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.targets.variant_class import __compute_target__
+from deeprank.models.environment import Environment
+from deeprank.domain.amino_acid import cysteine, alanine
 
 
 def test_annotate():
-    pdb_path = "test/101M.pdb"
-    pssm_paths = {"A": "101M.A.pdb.pssm"}
-    variant = PdbVariantSelection(pdb_path, "A", 10, "C", pssm_paths, variant_class=VariantClass.BENIGN)
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variant = PdbVariantSelection("101M", "A", 10, cysteine, alanine, variant_class=VariantClass.BENIGN)
 
     work_dir_path = mkdtemp()
     try:

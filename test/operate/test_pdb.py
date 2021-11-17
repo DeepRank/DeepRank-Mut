@@ -125,7 +125,7 @@ def test_residue_contact_atoms():
 
 
 def test_contacts_101m():
-    pdb_path = "test/101M.pdb"
+    pdb_path = "test/data/pdb/101M/101M.pdb"
     chain_id = "A"
 
     residue_number = 25
