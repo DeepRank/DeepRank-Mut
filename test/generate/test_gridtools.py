@@ -133,7 +133,7 @@ def test_nan():
             compute_contact_feature(environment, feature_group, raw_feature_group, variant)
 
             # Build the grid and map the features.
-            gridtools = GridTools(variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant,
                                   number_of_points=20, resolution=1.0,
                                   atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
                                   feature=feature_types,
