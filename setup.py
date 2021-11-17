@@ -51,7 +51,8 @@ setup(
         'torch-scatter',
         'pdb2sql >= 0.5.0',
         'freesasa==2.0.3.post7;platform_system=="Linux"',
-        'freesasa==2.0.5;platform_system=="Darwin"'
+        'freesasa==2.0.5;platform_system=="Darwin"',
+        'fastparquet'
         ],
     extras_require={
         'test': ['nose', 'coverage', 'pytest', 'pytest-cov',
