@@ -33,8 +33,6 @@ from deeprank.config.chemicals import AA_codes_3to1
 from deeprank.domain.amino_acid import amino_acids
 from deeprank.operate.pdb import is_xray
 from deeprank.models.environment import Environment
-from deeprank.feature.neighbour_profile import get_pssm_paths
-from deeprank.feature.variant_conservation import get_conservation_path
 
 
 arg_parser = ArgumentParser(description="Preprocess variants from a parquet file into HDF5")
@@ -42,7 +40,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("pssm_root", help="the path to the pssm root directory, containing files generated with PSSMgen")
-arg_parser.add_argument("conservations_root", help="the path to the conservations root directory, containing conservation files per protein")
+arg_parser.add_argument("conservation_root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -58,7 +56,8 @@ mpi_comm = MPI.COMM_WORLD
 
 feature_modules = ["deeprank.features.atomic_contacts",
                    "deeprank.features.accessibility",
-                   "deeprank.features.neighbour_profile"]
+                   "deeprank.features.neighbour_profile",
+                   "deeprank.features.variant_conservation"]
 target_modules = ["deeprank.targets.variant_class"]
 
 
@@ -73,7 +72,7 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info):
             grid_info (dict): the settings for the grid
     """
 
-    data_generator = DataGenerator(variants,
+    data_generator = DataGenerator(environment, variants,
                                    compute_features=feature_modules,
                                    compute_targets=target_modules,
                                    hdf5=hdf5_path, mpi_comm=mpi_comm,
@@ -85,16 +84,42 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info):
 def pdb_meets_criteria(pdb_root, pdb_ac):
     "a set of criteria that every pdb entry should meet"
 
-    pdb_path = os.path.join(pdb_root, "pdb%s.ent" % pdb_ac.lower())
+    pdb_paths = glob(os.path.join(pdb_root, "*{}.*".format(pdb_ac.lower()))) + \
+                glob(os.path.join(pdb_root, "*{}.*".format(pdb_ac.upper())))
 
-    if not os.path.isfile(pdb_path):
-        _log.warning("no such pdb: {}".format(pdb_path))
+    if len(pdb_paths) == 0:
+        _log.warning("no pdb found for {}".format(pdb_ac))
         return False
 
-    with open(pdb_path, 'rt') as f:
+    elif len(pdb_paths) > 1:
+        _log.warning("more than one pdb file for {}: {}".format(pdb_ac, pdb_paths))
+        return False
+
+    with open(pdb_paths[0], 'rt') as f:
         if not is_xray(f):
             _log.warning("not an x-ray pdb: {}".format(pdb_path))
             return False
+
+    return True
+
+
+def has_pssm(pssm_root, pdb_ac):
+    paths = glob(os.path.join(pssm_root, "{}/pssm/{}.?.pdb.pssm".format(pdb_ac.lower(), pdb_ac.lower())))
+
+    if len(paths) == 0:
+        _log.warning("no pssms for {}".format(pdb_ac))
+        return False
+
+    return True
+
+
+def has_conservation(conservation_root, protein_ac):
+    paths = [os.path.join(conservation_root, "{}.parq".format(protein_ac)),
+             os.path.join(conservation_root, "{}.PARQ".format(protein_ac))]
+
+    if not any([os.path.isfile(path) for path in paths]):
+        _log.warning("no conservation for {}".format(protein_ac))
+        return False
 
     return True
 
@@ -195,15 +220,11 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
             if not pdb_meets_criteria(pdb_root, pdb_ac):
                 continue
 
-            pssm_paths = get_pssm_paths(pssm_root, pdb_ac)
-            if len(pssm_paths) == 0:
-                _log.warning("no pssms for {}".format(pdb_ac))
+            if not has_pssm(pssm_root, pdb_ac):
                 continue
 
             protein_ac = row["protein_accession"]
-            conservation_path = get_conservation_path(conservation_root, protein_ac)
-            if not os.path.isfile(conservation_path):
-                _log.warning("no conservation for {}".format(protein_ac))
+            if not has_conservation(conservation_root, protein_ac):
                 continue
 
             variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,

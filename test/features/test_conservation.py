@@ -21,15 +21,18 @@ def test_conservation():
     hdf5_file, hdf5_path = tempfile.mkstemp(suffix=".hdf5")
     os.close(hdf5_file)
 
-    with h5py.File(hdf5_path, 'w') as f5:
+    try:
+        with h5py.File(hdf5_path, 'w') as f5:
 
-        variant_group = f5.create_group(get_variant_group_name(variant))
-        feature_group = variant_group.create_group("conservation_xyz")
+            variant_group = f5.create_group(get_variant_group_name(variant))
+            feature_group = variant_group.create_group("conservation_xyz")
 
-        variant_conservation.__compute_feature__(environment, feature_group, None, variant)
+            variant_conservation.__compute_feature__(environment, feature_group, None, variant)
 
-        wildtype_data = feature_group[variant_conservation.WT_FEATURE_NAME][()]
-        variant_data = feature_group[variant_conservation.VAR_FEATURE_NAME][()]
+            wildtype_data = feature_group[variant_conservation.WT_FEATURE_NAME][()]
+            variant_data = feature_group[variant_conservation.VAR_FEATURE_NAME][()]
 
-        assert wildtype_data[0, 3] == 0.67529296875, "value is {}".format(wildtype_data[0, 3])
-        assert variant_data[0, 3] == 0.0
+            assert wildtype_data[0, 3] == 0.67529296875, "value is {}".format(wildtype_data[0, 3])
+            assert variant_data[0, 3] == 0.0
+    finally:
+        os.remove(hdf5_path)
