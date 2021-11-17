@@ -51,21 +51,23 @@ def get_atoms(pdb2sql):
     # This is a working dictionary of residues, identified by their chains and numbers.
     residues = {}
 
-    # This is the list of atom objects, that will be returned.
-    atoms = []
+    # This is the dictionary of atom objects, its values will be returned.
+    atoms = {}
 
-    # Iterate over the atom output from pdb2sql
-    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode"
+    # Iterate over the atom output from pdb2sql, select atoms with highest occupancy.
+    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode,altLoc,occ"
+    highest_occupancies = {}
     for row in pdb2sql.get(request_s):
 
         try:
-            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code = row
+            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code, altloc, occ = row
         except:
             raise ValueError("Got unexpected row {} for {}".format(row, request_s))
 
-        # We use None as the default insertion code
+        atom_id = (chain_id, residue_number, insertion_code, atom_name)
+
         if insertion_code == "":
-            insertion_code = None
+            insertion_code = None  # default value
 
         # Make sure that the residue is in the working directory:
         residue_id = (chain_id, residue_number, insertion_code)
@@ -75,12 +77,24 @@ def get_atoms(pdb2sql):
         # Turn the x,y,z into a vector:
         atom_position = numpy.array([x, y, z])
 
-        # Create the atom object and link it to the residue:
-        atom = Atom(atom_number, atom_position, chain_id, atom_name, element, residues[residue_id])
-        residues[residue_id].atoms.append(atom)
-        atoms.append(atom)
+        atom_id = (chain_id, residue_number, insertion_code, atom_name)
 
-    return atoms
+        # If the occupancy is lower than the previous atom with the same id, skip the atom:
+        if atom_id in highest_occupancies:
+            highest_occ = highest_occupancies[atom_id]
+            if occ <= highest_occ:
+                continue
+
+        # otherwise, overwrite..
+        atoms[atom_id] = Atom(atom_number, atom_position, chain_id, atom_name, element, residues[residue_id], altloc, occ)
+        highest_occupancies[atom_id] = occ
+
+    # Link atoms to residues:
+    for (chain_id, residue_number, insertion_code, atom_name), atom in atoms.items():
+        residue_id = (chain_id, residue_number, insertion_code)
+        residues[residue_id].atoms.append(atom)
+
+    return list(atoms.values())
 
 
 def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_code, max_interatomic_distance):

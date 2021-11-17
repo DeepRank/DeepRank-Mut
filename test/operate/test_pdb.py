@@ -17,6 +17,27 @@ def test_xray():
         assert not is_xray(f), "1a6b was identified as x-ray"
 
 
+def test_altloc():
+    pdb_path = "test/data/pdb/5MNH/5MNH.pdb"
+
+    try:
+        pdb = pdb2sql(pdb_path)
+
+        atoms = get_atoms(pdb)
+
+    finally:
+        pdb._close()
+
+    selection = [atom for atom in atoms if atom.residue.number == 153 and
+                                           atom.chain_id == "A" and
+                                           atom.name == "CA"]
+
+    assert len(selection) == 1, "got {} of the same atom".format(len(selection))
+
+    # should be altloc C
+    assert selection[0].altloc == 'C', "got atom {} instead".format(selection[0].altloc)
+
+
 def test_get_atoms():
     pdb_path = "test/data/pdb/101M/101M.pdb"
 
@@ -62,6 +83,7 @@ def test_residue_contact_atoms():
         query_residue = _find_residue(atoms, chain_id, residue_number)
 
         contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, None, 8.5)
+        assert len(contact_atom_pairs) > 0, "no contacts found"
 
         # Check for redundancy (we shouldn't see the same set of atoms twice)
         atom_pairs_encountered = []
@@ -100,3 +122,25 @@ def test_residue_contact_atoms():
 
     ok_(neighbour in contact_atoms)
     ok_(distant not in contact_atoms)
+
+
+def test_contacts_101m():
+    pdb_path = "test/101M.pdb"
+    chain_id = "A"
+
+    residue_number = 25
+
+    pdb = pdb2sql(pdb_path)
+    try:
+        contact_atom_pairs = get_residue_contact_atom_pairs(pdb, chain_id, residue_number, None, 10.0)
+
+        assert len(contact_atom_pairs) > 0, "no contacts found"
+
+        for atom1, atom2 in contact_atom_pairs:
+            assert atom1.residue is not None
+            assert len(atom1.residue.atoms) > 0
+
+            assert atom2.residue is not None
+            assert len(atom2.residue.atoms) > 0
+    finally:
+        pdb._close()

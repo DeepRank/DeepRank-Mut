@@ -18,10 +18,11 @@ def test_feature():
 
     tmp_dir_path = mkdtemp()
 
+    variant = PdbVariantSelection("101M", "A", 25, glycine, tryptophan)
+
     try:
         hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
 
-        variant = PdbVariantSelection("101M", "A", 25, glycine, tryptophan)
 
         with h5py.File(hdf5_path, 'w') as f5:
             group = f5.require_group("features")
