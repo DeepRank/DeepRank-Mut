@@ -11,6 +11,7 @@ from deeprank.features.atomic_contacts import __compute_feature__
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.forcefield import atomic_forcefield
 from deeprank.operate.pdb import get_atoms
+from deeprank.domain.amino_acid import serine, cysteine
 
 
 def _find_atom(atoms, chain_id, residue_number, atom_name):
@@ -86,6 +87,28 @@ def test_forcefield_on_missing_parameters():
 
         c = atomic_forcefield.get_charge(atom)
         ok_(c >= -1.5 and c <= 1.5)
+
+
+def test_forcefield_on_altlocs():
+    "test the forcefield on a structure with atomic altlocs"
+
+    pdb_path = "test/data/pdb/5EYU/5EYU.pdb"
+
+    variant = PdbVariantSelection(pdb_path, "A", 8, serine, cysteine)
+
+    pdb = pdb2sql(pdb_path)
+    try:
+        atoms = get_atoms(pdb)
+    finally:
+        pdb._close()
+
+    # Check for NaN values
+    for atom in atoms:
+        p = atomic_forcefield.get_vanderwaals_parameters(atom)
+        c = atomic_forcefield.get_charge(atom)
+
+        ok_(not numpy.any(numpy.isnan([p.inter_epsilon, p.inter_sigma, p.intra_epsilon, p.intra_sigma, c])))
+
 
 
 def _compute_features(variant):
