@@ -17,7 +17,9 @@ def test_xray():
         assert not is_xray(f), "1a6b was identified as x-ray"
 
 
-def test_altloc():
+def test_altloc_5mnh():
+    "Test with a structure where residue 153 altloc C has highest occupancy"
+
     pdb_path = "test/data/pdb/5MNH/5MNH.pdb"
 
     try:
@@ -34,8 +36,26 @@ def test_altloc():
 
     assert len(selection) == 1, "got {} of the same atom".format(len(selection))
 
-    # should be altloc C
     assert selection[0].altloc == 'C', "got atom {} instead".format(selection[0].altloc)
+
+def test_altloc_5eyu():
+    "Test with a structure where residue 8 has two altlocs with equal occupancy"
+
+    pdb_path = "test/data/pdb/5EYU/5EYU.pdb"
+
+    try:
+        pdb = pdb2sql(pdb_path)
+
+        atoms = get_atoms(pdb)
+
+    finally:
+        pdb._close()
+
+    selection = [atom for atom in atoms if atom.residue.number == 8 and
+                                           atom.chain_id == "A" and
+                                           atom.name == "CA"]
+
+    assert len(selection) == 1, "got {} of the same atom".format(len(selection))
 
 
 def test_get_atoms():
