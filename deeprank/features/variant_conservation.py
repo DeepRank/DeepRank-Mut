@@ -1,5 +1,6 @@
 import os
 
+import numpy
 from pdb2sql import pdb2sql
 import pandas
 
@@ -50,6 +51,13 @@ def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     residue_row = conservations_dataframe.iloc[variant.protein_residue_number - 1]
     wildtype_conservation = residue_row["sub_consv_{}".format(variant.wildtype_amino_acid.letter)]
     variant_conservation = residue_row["sub_consv_{}".format(variant.variant_amino_acid.letter)]
+
+    # make sure there are no NaNs:
+    if numpy.isnan(wildtype_conservation):
+        wildtype_conservation = 0.0
+
+    if numpy.isnan(variant_conservation):
+        variant_conservation = 0.0
 
     # Get the C-alpha position to store the feature with:
     c_alpha_position = _get_c_alpha_pos(environment.pdb_root, variant)
