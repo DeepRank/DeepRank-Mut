@@ -119,9 +119,22 @@ def add_conservation(conservations, output_hdf5):
                 c_alpha = [atom for atom in atoms if atom.residue.number == variant.residue_number and 
                                                      atom.chain_id == variant.chain_id and atom.name == "CA"][0]
                 position = c_alpha.position
+                if numpy.any(numpy.isnan(position)):
+                    _log.warning("deleting {} ({}) because there's a NaN position".format(variant_group_name, variant))
+                    del f5[variant_group_name]
+                    continue
 
-                wt_data = numpy.array([list(position) + [conservations[variant][wt]]])
-                var_data = numpy.array([list(position) + [conservations[variant][var]]])
+                wt_conservation = conservations[variant][wt]
+                var_conservation = conservations[variant][var]
+
+                if numpy.isnan(wt_conservation):
+                    wt_conservation = 0.0
+
+                if numpy.isnan(var_conservation):
+                    var_conservation = 0.0
+
+                wt_data = numpy.array([list(position) + [wt_conservation]])
+                var_data = numpy.array([list(position) + [var_conservation]])
 
                 feature_group = variant_group.require_group("features")
 
