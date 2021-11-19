@@ -15,6 +15,7 @@ from deeprank import config
 from deeprank.config import logger
 from deeprank.generate import MinMaxParam, NormalizeData, NormParam
 from deeprank.tools import sparse
+from deeprank.operate.hdf5data import load_variant
 
 # import torch.utils.data as data_utils
 # The class used to subclass data_utils.Dataset
@@ -870,6 +871,7 @@ class DataSet():
 
         # get the variant
         variant_data = fh5.get(variant_name)
+        variant = load_variant(variant_data)
 
         # check for mapped features:
         if 'mapped_features' not in variant_data.keys():
@@ -902,7 +904,7 @@ class DataSet():
                 # extract the group
                 if name not in feat_dict:
                     raise ValueError(f'Feature {name} not found in file {fname} for variant '
-                                     f'{variant_name} and feature type {feat_type}.\n'
+                                     f'{variant} and feature type {feat_type}.\n'
                                      '\n\t'.join(list(
                                         variant_data['mapped_features/' + feat_type].keys()
                                      )))

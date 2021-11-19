@@ -11,9 +11,8 @@ from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.model3d import cnn_reg
-from deeprank.domain.amino_acid import valine, cysteine
 from deeprank.models.environment import Environment
-
+from deeprank.domain.amino_acid import valine, cysteine, serine
 import deeprank.config
 
 
@@ -40,7 +39,11 @@ def test_learn():
 
     environment = Environment(pdb_root="test/data/pdb")
 
-    variant = PdbVariantSelection("101M", "A", 10, valine, cysteine)
+    variants = [PdbVariantSelection("101m", "A", 10, valine, cysteine, {"A": "test/101M.A.pdb.pssm"}),
+                PdbVariantSelection("5EYU", "A", 8, serine, cysteine, {"A": "test/data/pssm/5EYU/5eyu.A.pdb.pssm",
+                                                                       "B": "test/data/pssm/5EYU/5eyu.B.pdb.pssm",
+                                                                       "C": "test/data/pssm/5EYU/5eyu.C.pdb.pssm",
+                                                                       "D": "test/data/pssm/5EYU/5eyu.D.pdb.pssm"})]
 
     work_dir_path = mkdtemp()
     try:
@@ -48,7 +51,7 @@ def test_learn():
 
         # data_augmentation has been set to a high number, so that
         # the train, valid and test set can be large enough.
-        data_generator = DataGenerator(environment, [variant], data_augmentation=50,
+        data_generator = DataGenerator(environment, variants, data_augmentation=25,
                                        compute_targets=target_modules,
                                        compute_features=feature_modules,
                                        hdf5=hdf5_path)

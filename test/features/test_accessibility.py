@@ -11,8 +11,8 @@ import numpy
 from deeprank.models.environment import Environment
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.features.accessibility import __compute_feature__, FEATURE_NAME
-from deeprank.domain.amino_acid import valine, threonine
 from deeprank.operate.pdb import get_pdb_path
+from deeprank.domain.amino_acid import valine, threonine, serine, cysteine
 
 
 _log = logging.getLogger(__name__)
@@ -29,8 +29,7 @@ def _find_feature_value_by_xyz(position, data):
 
 def test_compute_feature():
 
-    environment = Environment()
-    environment.pdb_root = "test/data/pdb/"
+    environment = Environment(pdb_root="test/data/pdb/")
 
     tmp_dir_path = mkdtemp()
     try:
@@ -66,5 +65,29 @@ def test_compute_feature():
                 ok_(surface_sasa > buried_sasa)
             finally:
                 pdb._close()
+    finally:
+        rmtree(tmp_dir_path)
+
+def test_compute_feature_with_altlocs():
+
+    environment = Environment(pdb_root="test/data/pdb")
+
+    tmp_dir_path = mkdtemp()
+    try:
+        hdf5_path = os.path.join(tmp_dir_path, "test.hdf5")
+        with h5py.File(hdf5_path, 'w') as f5:
+            feature_group = f5.require_group("features")
+            raw_feature_group = f5.require_group("raw_features")
+            variant = PdbVariantSelection("5EYU", 'A', 8, serine, cysteine)
+
+            __compute_feature__(environment, feature_group, raw_feature_group, variant)
+
+            data = feature_group.get(FEATURE_NAME)
+
+            # Did the feature get stored:
+            ok_(len(data) > 0)
+
+            # Any NaN values:
+            ok_(not numpy.any(numpy.isnan(data)))
     finally:
         rmtree(tmp_dir_path)
