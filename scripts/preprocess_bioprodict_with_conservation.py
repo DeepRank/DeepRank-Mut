@@ -39,7 +39,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
-arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
+arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=1)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
 arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of each edge of the 3d grid", type=float, default=20)
 
