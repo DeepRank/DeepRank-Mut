@@ -94,7 +94,7 @@ def pdb_meets_criteria(pdb_root, pdb_ac):
 
     with open(pdb_paths[0], 'rt') as f:
         if not is_xray(f):
-            _log.warning("not an x-ray pdb: {}".format(pdb_path))
+            _log.warning("not an x-ray pdb: {}".format(pdb_paths[0]))
             return False
 
     return True
