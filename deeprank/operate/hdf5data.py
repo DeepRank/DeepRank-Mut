@@ -41,6 +41,10 @@ def store_variant(variant_group, variant):
     variant_group.attrs['variant_amino_acid_name'] = variant.variant_amino_acid.name
     variant_group.attrs['wild_type_amino_acid_name'] = variant.wild_type_amino_acid.name
 
+    if variant.protein_accession is not None and variant.protein_residue_number is not None:
+        variant_group.attrs['variant_protein_accession'] = variant.protein_accession
+        variant_group.attrs['variant_protein_residue_number'] = variant.protein_residue_number
+
 
 def load_variant(variant_group):
     """ Loads the variant from the HDF5 variant group
@@ -68,12 +72,21 @@ def load_variant(variant_group):
     else:
         insertion_code = None
 
+    if 'variant_protein_accession' in variant_group.attrs and 'variant_protein_residue_number' in variant_group.attrs:
+
+        protein_accession = variant_group.attrs['variant_protein_accession']
+        protein_residue_number = variant_group.attrs['variant_protein_residue_number']
+    else:
+        protein_accession = None
+        protein_residue_number = None
+
     amino_acids_by_name = {amino_acid.name: amino_acid for amino_acid in amino_acids}
 
     variant_amino_acid = amino_acids_by_name[variant_group.attrs['variant_amino_acid_name']]
     wild_type_amino_acid = amino_acids_by_name[variant_group.attrs['wild_type_amino_acid_name']]
 
-    variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain, insertion_code=insertion_code)
+    variant = PdbVariantSelection(pdb_path, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, pssm_paths_by_chain, insertion_code=insertion_code,
+                                  protein_accession=protein_accession, protein_residue_number=protein_residue_number)
 
     return variant
 

@@ -19,6 +19,7 @@ import torch.optim as optim
 import torch.utils.data as data_utils
 from torchsummary import summary
 
+from deeprank.operate.hdf5data import load_variant
 from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
@@ -752,7 +753,7 @@ class NeuralNet():
 
         # variables of the epoch
         running_loss = 0
-        data = {'outputs': [], 'targets': [], 'mol': []}
+        data = {'outputs': [], 'targets': [], 'mol': [], "variant": []}
 
         if self.save_classmetrics:
             for i in self.metricnames:
@@ -827,7 +828,16 @@ class NeuralNet():
                 data['targets'] += targets.data.numpy().tolist()
 
             fname, molname = mol[0], mol[1]
-            data['mol'] += [(f, m) for f, m in zip(fname, molname)]
+
+            for f, m in zip(fname, molname):
+                data['mol'] += [(f, m)]
+
+                with h5py.File(f, 'r') as f5:
+                    variant = load_variant(f5[m])
+
+                data['variant'] += [os.path.basename(variant.pdb_path), variant.chain_id, variant.residue_id,
+                                    variant.wild_type_amino_acid.name, variant.variant_amino_acid.name,
+                                    variant.protein_accession, str(variant.protein_residue_number)]
 
         # transform the output back
         data['outputs'] = np.array(data['outputs'])  # .flatten()
@@ -835,6 +845,7 @@ class NeuralNet():
 
         # make np for export
         data['mol'] = np.array(data['mol'], dtype=object)
+        data['variant'] = np.array(data['variant'], dtype=object)
 
         # get classification metrics
         if self.save_classmetrics:
