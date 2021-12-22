@@ -838,10 +838,15 @@ class NeuralNet():
                 variant_row = [os.path.basename(variant.pdb_path), variant.chain_id, variant.residue_id,
                                variant.wild_type_amino_acid.name, variant.variant_amino_acid.name]
 
-                if variant.protein_accession is not None and variant.protein_residue_number is not None:
-                    variant_row += [variant.protein_accession, str(variant.protein_residue_number)]
+                if variant.protein_accession is not None:
+                    variant_row.append(variant.protein_accession)
                 else:
-                    variant_row += ["", ""]
+                    variant_row.append("")
+
+                if variant.protein_residue_number is not None:
+                    variant_row.append(str(variant.protein_residue_number))
+                else:
+                    variant_row.append("")
 
                 data['variant'].append(variant_row)
 
