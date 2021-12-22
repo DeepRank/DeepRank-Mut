@@ -827,17 +827,23 @@ class NeuralNet():
                 data['outputs'] += outputs.data.numpy().tolist()
                 data['targets'] += targets.data.numpy().tolist()
 
+            # write the names of the variant to the epoch data
             fname, molname = mol[0], mol[1]
-
             for f, m in zip(fname, molname):
                 data['mol'] += [(f, m)]
 
                 with h5py.File(f, 'r') as f5:
                     variant = load_variant(f5[m])
 
-                data['variant'] += [os.path.basename(variant.pdb_path), variant.chain_id, variant.residue_id,
-                                    variant.wild_type_amino_acid.name, variant.variant_amino_acid.name,
-                                    variant.protein_accession, str(variant.protein_residue_number)]
+                variant_row = [os.path.basename(variant.pdb_path), variant.chain_id, variant.residue_id,
+                               variant.wild_type_amino_acid.name, variant.variant_amino_acid.name]
+
+                if variant.protein_accession is not None and variant.protein_residue_number is not None:
+                    variant_row += [variant.protein_accession, str(variant.protein_residue_number)]
+                else:
+                    variant_row += ["", ""]
+
+                data['variant'].append(variant_row)
 
         # transform the output back
         data['outputs'] = np.array(data['outputs'])  # .flatten()
@@ -1142,12 +1148,12 @@ class NeuralNet():
                 # loop over the data: target/output/molname
                 for data_name, data_value in pass_data.items():
 
-                    # mol name is a bit different
-                    # since there are strings
-                    if data_name == 'mol':
+                    # mol name and variant are a bit different
+                    # since these are strings
+                    if data_name in ['mol', 'variant']:
+
                         string_dt = h5py.special_dtype(vlen=str)
-                        sg.create_dataset(
-                            data_name, data=data_value, dtype=string_dt)
+                        sg.create_dataset(data_name, data=data_value, dtype=string_dt)
 
                     # output/target values
                     else:
