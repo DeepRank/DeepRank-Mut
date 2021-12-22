@@ -176,9 +176,9 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
         wt_amino_acid_code = swap[:3]
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
-        
+
         variants_section= variant_section.iloc[:20] 
- 
+
         for _, row in variants_section.iterrows():  # each row maps the variant to one pdb entry
 
             pdb_ac = row["pdb_structure"]
@@ -204,10 +204,13 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
                 _log.warning("no pssms for {}".format(pdb_ac))
                 continue
 
+            protein_ac = row['protein_accession']
+
             variant = PdbVariantSelection(pdb_path, chain_id, pdb_number,
                                           amino_acids_by_code[wt_amino_acid_code],
                                           amino_acids_by_code[var_amino_acid_code],
-                                          pssm_paths, variant_class, insertion_code)
+                                          pssm_paths, variant_class, insertion_code,
+                                          protein_ac, residue_number)
 
             _log.debug("adding variant {}".format(variant))
 
