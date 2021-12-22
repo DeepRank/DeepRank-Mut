@@ -2,6 +2,7 @@ import os
 from tempfile import mkdtemp
 from shutil import rmtree
 
+import h5py
 import numpy
 import torch.optim as optim
 from nose.tools import ok_
@@ -74,6 +75,17 @@ def test_learn():
                                          momentum=0.9,
                                          weight_decay=0.005)
 
-        neural_net.train(nepoch = 50, divide_trainset=0.8, train_batch_size = 5, num_workers=0)
+        epoch_data_path = "epoch_data.hdf5"
+
+        neural_net.train(nepoch = 50, divide_trainset=0.8, train_batch_size = 5, num_workers=0, hdf5=epoch_data_path)
+
+        # Check the contents of the variant data output
+        with h5py.File(os.path.join(work_dir_path, "net-output", epoch_data_path), 'r') as f5:
+
+            variant_data = f5['epoch_0000/train/variant'][()]
+            assert len(variant_data.shape) == 2, "unexpected variant data shape: {}".format(variant_data.shape)
+            assert variant_data.shape[1] == 7, "unexpected variant data row format: {}".format(variant_data[0, :])
+            assert variant_data[0, 0].decode().lower().endswith(".pdb"), "unexpected structure {}".format(variant_data[0, 0])
+
     finally:
         rmtree(work_dir_path)
