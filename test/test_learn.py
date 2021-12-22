@@ -37,11 +37,13 @@ def test_learn():
        'atomic_densities': atomic_densities,
     }
 
-    variants = [PdbVariantSelection("test/101m.pdb", "A", 10, valine, cysteine, {"A": "test/101M.A.pdb.pssm"}),
+    variants = [PdbVariantSelection("test/101m.pdb", "A", 10, valine, cysteine, {"A": "test/101M.A.pdb.pssm"},
+                                    protein_accession="P02144", protein_residue_number=10),
                 PdbVariantSelection("test/data/pdb/5EYU/5EYU.pdb", "A", 8, serine, cysteine, {"A": "test/data/pssm/5EYU/5eyu.A.pdb.pssm",
                                                                                               "B": "test/data/pssm/5EYU/5eyu.B.pdb.pssm",
                                                                                               "C": "test/data/pssm/5EYU/5eyu.C.pdb.pssm",
-                                                                                              "D": "test/data/pssm/5EYU/5eyu.D.pdb.pssm"})]
+                                                                                              "D": "test/data/pssm/5EYU/5eyu.D.pdb.pssm"},
+                                    protein_accession="Q9L4P8")]
 
     work_dir_path = mkdtemp()
     try:
