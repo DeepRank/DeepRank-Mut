@@ -17,7 +17,7 @@ def test_conservation():
     environment = Environment(pdb_root="test/data/pdb/",
                               conservation_root="test/data/conservation")
 
-    variant = PdbVariantSelection("1TBG", "A", 25, threonine, lysine, protein_ac="P16520", protein_residue_number=102)
+    variant = PdbVariantSelection("1TBG", "A", 25, threonine, lysine, protein_accession="P16520", protein_residue_number=102)
 
     hdf5_file, hdf5_path = tempfile.mkstemp(suffix=".hdf5")
     os.close(hdf5_file)
@@ -45,7 +45,7 @@ def test_conservation_nan():
     environment = Environment(pdb_root="test/data/pdb/",
                               conservation_root="test/data/conservation")
 
-    variant = PdbVariantSelection("1QUU", "A", 76, alanine, aspartate, protein_ac="P35609", protein_residue_number=1)
+    variant = PdbVariantSelection("1QUU", "A", 76, alanine, aspartate, protein_accession="P35609", protein_residue_number=1)
 
     hdf5_file, hdf5_path = tempfile.mkstemp(suffix=".hdf5")
     os.close(hdf5_file)
