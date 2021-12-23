@@ -15,7 +15,7 @@ class PdbVariantSelection:
         residue_number (int): the identifying number of the residue within the protein chain
         wildtype_amino_acid (str): one letter code of the wild-type amino acid at this position
         variant_amino_acid (str): one letter code of the amino acid to place at this position
-        protein_ac (str): protein accession code, used for getting conservations
+        protein_accession (str): protein accession code, used for getting conservations
         protein_residue_number (int): protein residue number, used for getting conservations
         variant_class (VariantClass, optional): if known, the expected classification of the variant
         insertion_code (str): insertion code of the residue, default is None
@@ -23,7 +23,7 @@ class PdbVariantSelection:
 
     def __init__(self, pdb_ac, chain_id, residue_number,
                  wildtype_amino_acid, variant_amino_acid,
-                 protein_ac=None, protein_residue_number=None,
+                 protein_accession=None, protein_residue_number=None,
                  variant_class=None, insertion_code=None):
 
         self._pdb_ac = pdb_ac
@@ -32,13 +32,13 @@ class PdbVariantSelection:
         self._insertion_code = insertion_code
         self._wildtype_amino_acid = wildtype_amino_acid
         self._variant_amino_acid = variant_amino_acid
-        self._protein_ac = protein_ac
+        self._protein_accession = protein_accession
         self._protein_residue_number = protein_residue_number
         self._variant_class = variant_class
 
     @property
-    def protein_ac(self):
-        return self._protein_ac
+    def protein_accession(self):
+        return self._protein_accession
 
     @property
     def protein_residue_number(self):
@@ -57,8 +57,24 @@ class PdbVariantSelection:
         return self._residue_number
 
     @property
+    def residue_id(self):
+        residue_id = str(self._residue_number)
+        if self._insertion_code is not None:
+            residue_id += self._insertion_code
+
+        return residue_id
+
+    @property
+    def protein_residue_number(self):
+        return self._protein_residue_number
+
+    @property
     def insertion_code(self):
         return self._insertion_code
+
+    @property
+    def protein_accession(self):
+        return self._protein_accession
 
     @property
     def wild_type_amino_acid(self):
@@ -72,9 +88,6 @@ class PdbVariantSelection:
     def variant_amino_acid(self):
         return self._variant_amino_acid
 
-    @property
-    def protein_ac(self):
-        return self._protein_ac
 
     @property
     def protein_residue_number(self):
@@ -98,11 +111,7 @@ class PdbVariantSelection:
         return hash(s)
 
     def __repr__(self):
-        residue_id = str(self._residue_number)
-        if self._insertion_code is not None:
-            residue_id += self._insertion_code
-
-        return "{}:{}:{}:{}->{}".format(self._pdb_ac, self._chain_id, residue_id, self._wildtype_amino_acid, self._variant_amino_acid)
+        return "{}:{}:{}:{}->{}".format(self._pdb_ac, self._chain_id, self.residue_id, self._wildtype_amino_acid, self._variant_amino_acid)
 
     @property
     def variant_class(self):

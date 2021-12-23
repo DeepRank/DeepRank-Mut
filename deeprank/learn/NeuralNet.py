@@ -19,6 +19,7 @@ import torch.optim as optim
 import torch.utils.data as data_utils
 from torchsummary import summary
 
+from deeprank.operate.hdf5data import load_variant
 from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
@@ -752,7 +753,7 @@ class NeuralNet():
 
         # variables of the epoch
         running_loss = 0
-        data = {'outputs': [], 'targets': [], 'mol': []}
+        data = {'outputs': [], 'targets': [], 'mol': [], "variant": []}
 
         if self.save_classmetrics:
             for i in self.metricnames:
@@ -826,8 +827,28 @@ class NeuralNet():
                 data['outputs'] += outputs.data.numpy().tolist()
                 data['targets'] += targets.data.numpy().tolist()
 
+            # write the names of the variant to the epoch data
             fname, molname = mol[0], mol[1]
-            data['mol'] += [(f, m) for f, m in zip(fname, molname)]
+            for f, m in zip(fname, molname):
+                data['mol'] += [(f, m)]
+
+                with h5py.File(f, 'r') as f5:
+                    variant = load_variant(f5[m])
+
+                variant_row = [variant.pdb_ac, variant.chain_id, variant.residue_id,
+                               variant.wild_type_amino_acid.name, variant.variant_amino_acid.name]
+
+                if variant.protein_accession is not None:
+                    variant_row.append(variant.protein_accession)
+                else:
+                    variant_row.append("")
+
+                if variant.protein_residue_number is not None:
+                    variant_row.append(str(variant.protein_residue_number))
+                else:
+                    variant_row.append("")
+
+                data['variant'].append(variant_row)
 
         # transform the output back
         data['outputs'] = np.array(data['outputs'])  # .flatten()
@@ -835,6 +856,7 @@ class NeuralNet():
 
         # make np for export
         data['mol'] = np.array(data['mol'], dtype=object)
+        data['variant'] = np.array(data['variant'], dtype=object)
 
         # get classification metrics
         if self.save_classmetrics:
@@ -1131,12 +1153,12 @@ class NeuralNet():
                 # loop over the data: target/output/molname
                 for data_name, data_value in pass_data.items():
 
-                    # mol name is a bit different
-                    # since there are strings
-                    if data_name == 'mol':
+                    # mol name and variant are a bit different
+                    # since these are strings
+                    if data_name in ['mol', 'variant']:
+
                         string_dt = h5py.special_dtype(vlen=str)
-                        sg.create_dataset(
-                            data_name, data=data_value, dtype=string_dt)
+                        sg.create_dataset(data_name, data=data_value, dtype=string_dt)
 
                     # output/target values
                     else:
