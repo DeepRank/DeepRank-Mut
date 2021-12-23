@@ -219,7 +219,7 @@ def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
         wt_amino_acid_code = swap[:3]
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
-        
+
         variants_section= variant_section.iloc[:20] 
 
         for _, row in variants_section.iterrows():  # each row maps the variant to one pdb entry
@@ -247,7 +247,8 @@ def get_pdb_mappings(hdf5_path, pdb_root, variant_data):
             variant = PdbVariantSelection(pdb_path, chain_id, pdb_number,
                                           amino_acids_by_code[wt_amino_acid_code],
                                           amino_acids_by_code[var_amino_acid_code],
-                                          {}, variant_class, insertion_code)
+                                          {}, variant_class, insertion_code,
+                                          protein_accession=protein_ac, protein_residue_number=residue_number)
 
             _log.debug("adding variant {} on {} residue {}".format(variant, protein_ac, residue_number))
 
