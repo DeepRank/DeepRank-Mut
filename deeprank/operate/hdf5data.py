@@ -216,7 +216,7 @@ def load_grid_data(variant_group, feature_name):
         if subfeature_group.attrs['sparse']:
 
             spg = sparse.FLANgrid(True,
-                                  subfeature_group['index'], subfeature_group['value'],
+                                  subfeature_group['index'][:], subfeature_group['value'][:],
                                   grid_shape)
             grid_data[subfeature_name] = numpy.array(spg.to_dense())
         else:
