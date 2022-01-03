@@ -246,7 +246,7 @@ class GridTools(object):
     # add all the residue features to the data
 
     def add_all_features(self):
-        """Add all the features toa given variant."""
+        """Add all the features to a given variant."""
 
         # map the features
         if self.feature is not None:
