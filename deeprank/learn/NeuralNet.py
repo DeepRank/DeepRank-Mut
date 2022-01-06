@@ -357,7 +357,8 @@ class NeuralNet():
                     save_epoch=save_epoch,
                     save_model=save_model)
 
-        NeuralNet.plot_mcc(self.f5, "mcc-plot.png")
+        if self.task == "class":
+            NeuralNet.plot_mcc(self.f5, "mcc-plot.png")
 
         self.f5.close()
         logger.info(
