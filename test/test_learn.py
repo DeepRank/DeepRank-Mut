@@ -1,5 +1,5 @@
 import os
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 from shutil import rmtree
 
 import h5py
@@ -91,3 +91,16 @@ def test_learn():
 
     finally:
         rmtree(work_dir_path)
+
+
+def test_plot_mcc():
+
+    plot_file, plot_path = mkstemp(prefix="plot-mcc", suffix=".png")
+    os.close(plot_file)
+
+    try:
+        with h5py.File("test/data/epoch_data.hdf5", "r") as f5:
+            NeuralNet.plot_mcc(f5, plot_path)
+    finally:
+        if os.path.isfile(plot_path):
+            os.remove(plot_path)
