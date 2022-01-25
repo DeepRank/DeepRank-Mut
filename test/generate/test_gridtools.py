@@ -1,6 +1,6 @@
 import os
 import pkg_resources
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 import shutil
 import logging
 
@@ -11,9 +11,11 @@ import pdb2sql
 
 from deeprank.operate import hdf5data
 from deeprank.generate.GridTools import GridTools
+from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.models.variant import PdbVariantSelection
-from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
-from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, aspartate, asparagine, unknown_amino_acid
+from deeprank.features.atomic_contacts import (__compute_feature__ as compute_contact_feature,
+                                               COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME)
+from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, aspartate, glutamate, asparagine, unknown_amino_acid
 
 
 _log = logging.getLogger(__name__)
@@ -135,6 +137,71 @@ def test_nan():
                                   try_sparse=False)
     finally:
         shutil.rmtree(tmp_dir)
+
+
+def test_map_negative_contacts_features():
+    pdb_path = "test/data/7req.pdb"
+    variant = PdbVariantSelection(pdb_path, "A", 255, glutamate, aspartate)
+
+    sqldb = pdb2sql.pdb2sql(pdb_path)
+    try:
+        mean_position = numpy.mean(sqldb.get("x,y,z"), 0)
+    finally:
+        sqldb._close()
+
+    hdf5_file, hdf5_path = mkstemp()
+    os.close(hdf5_file)
+
+    try:
+        with h5py.File(hdf5_path, 'w') as f5:
+            variant_group = f5.require_group(str(variant))
+            hdf5data.store_variant(variant_group, variant)
+
+            group_xyz = variant_group.require_group("features")
+            group_raw = variant_group.require_group("features_raw")
+
+            compute_contact_feature(pdb_path, group_xyz, group_raw, variant)
+
+            augmented_variant_group = f5.require_group(str(variant) + "_r001")
+            f5.copy(variant_group.name + '/features/', augmented_variant_group)
+            hdf5data.store_variant(augmented_variant_group, variant)
+
+            axis, angle = pdb2sql.transform.get_rot_axis_angle(seed=None)
+            DataGenerator._rotate_feature(augmented_variant_group, axis, angle, mean_position)
+
+            for entry_group in [variant_group, augmented_variant_group]:
+                GridTools(entry_group, variant,
+                         number_of_points=20, resolution=1.0,
+                         atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+                         feature=[COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME],
+                         contact_distance=8.5,
+                         try_sparse=False)
+
+            charges = variant_group["mapped_features/Feature_ind/charge/value"][()]
+            vanderwaals = variant_group["mapped_features/Feature_ind/vdwaals/value"][()]
+            coulomb = variant_group["mapped_features/Feature_ind/coulomb/value"][()]
+
+            augmented_charges = augmented_variant_group["mapped_features/Feature_ind/charge/value"][()]
+            augmented_vanderwaals = augmented_variant_group["mapped_features/Feature_ind/vdwaals/value"][()]
+            augmented_coulomb = augmented_variant_group["mapped_features/Feature_ind/coulomb/value"][()]
+    finally:
+        os.remove(hdf5_path)
+
+    assert len(numpy.nonzero(charges < 0.0)) > 0, "no negative charges in variant group"
+    assert len(numpy.nonzero(vanderwaals < 0.0)) > 0, "no negative vanderwaals in variant group"
+    assert len(numpy.nonzero(coulomb < 0.0)) > 0, "no negative coulomb in variant group"
+
+    assert len(numpy.nonzero(augmented_charges < 0.0)) > 0, "no negative charges in augmented variant group"
+    assert len(numpy.nonzero(augmented_vanderwaals < 0.0)) > 0, "no negative vanderwaals augmented variant group"
+    assert len(numpy.nonzero(augmented_coulomb < 0.0)) > 0, "no negative coulomb augmented variant group"
+
+    assert len(numpy.nonzero(charges > 0.0)) > 0, "no positive charges in variant group"
+    assert len(numpy.nonzero(vanderwaals > 0.0)) > 0, "no positive vanderwaals in variant group"
+    assert len(numpy.nonzero(coulomb > 0.0)) > 0, "no positive coulomb in variant group"
+
+    assert len(numpy.nonzero(augmented_charges > 0.0)) > 0, "no positive charges in augmented variant group"
+    assert len(numpy.nonzero(augmented_vanderwaals > 0.0)) > 0, "no positive vanderwaals augmented variant group"
+    assert len(numpy.nonzero(augmented_coulomb > 0.0)) > 0, "no positive coulomb augmented variant group"
 
 
 def test_feature_mapping():
