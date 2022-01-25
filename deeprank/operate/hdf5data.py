@@ -205,7 +205,8 @@ def load_grid_data(variant_group, feature_name):
         Returns (dict(str, matrix(number))): a dictionary, containing the data per subfeature name
     """
 
-    grid_shape = numpy.shape(load_grid_points(variant_group))
+    grid_xs, grid_ys, grid_zs = load_grid_points(variant_group)
+    grid_shape = (len(grid_xs), len(grid_ys), len(grid_zs))
 
     feature_group = variant_group["mapped_features/%s" % feature_name]
 
@@ -220,6 +221,6 @@ def load_grid_data(variant_group, feature_name):
                                   grid_shape)
             grid_data[subfeature_name] = numpy.array(spg.to_dense())
         else:
-            grid_data[subfeature_name] = numpy.array(subfeature_group['value'])
+            grid_data[subfeature_name] = numpy.array(subfeature_group['value'][:])
 
     return grid_data
