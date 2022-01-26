@@ -84,7 +84,7 @@ def test_atomic_contacts_mapping():
 
             points_count = 30
 
-            center = DataGenerator._get_grid_center(variant)
+            center = DataGenerator.get_grid_center(variant)
 
             # Build the grid and map the features.
             gridtools = GridTools(variant_group, variant, center,
@@ -130,7 +130,7 @@ def test_nan():
 
             compute_contact_feature(pdb_path, feature_group, raw_feature_group, variant)
 
-            center = DataGenerator._get_grid_center(variant)
+            center = DataGenerator.get_grid_center(variant)
 
             # Build the grid and map the features.
             gridtools = GridTools(variant_group, variant, center,
@@ -164,7 +164,7 @@ def test_abnormal_contacts_features():
             f5.copy(variant_group.name + '/features/', augmented_variant_group)
             hdf5data.store_variant(augmented_variant_group, variant)
 
-            center = DataGenerator._get_grid_center(variant)
+            center = DataGenerator.get_grid_center(variant)
             axis, angle = pdb2sql.transform.get_rot_axis_angle(seed=None)
             DataGenerator._rotate_feature(augmented_variant_group, axis, angle, center)
 

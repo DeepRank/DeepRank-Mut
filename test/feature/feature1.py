@@ -2,9 +2,9 @@ from pdb2sql import pdb2sql
 import numpy
 
 
-def __compute_feature__(pdb_data, featgrp, featgrp_raw, mutant):
+def __compute_feature__(pdb_data, featgrp, featgrp_raw, variant):
 
-    pdb = pdb2sql(mutant.pdb_path)
+    pdb = pdb2sql(variant.pdb_path)
 
     try:
         chain_ids = sorted(set(pdb.get("chainID")))

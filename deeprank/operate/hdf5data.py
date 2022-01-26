@@ -55,27 +55,27 @@ def load_variant(variant_group):
         Returns (PdbVariantSelection): the variant object
     """
 
-    pdb_path = variant_group.attrs['pdb_path']
+    pdb_path = str(variant_group.attrs['pdb_path'])
 
     pssm_paths_by_chain = {}
     for attr_name in variant_group.attrs:
         if attr_name.startswith("pssm_path_"):
-            chain_id = attr_name.split('_')[-1]
-            pssm_paths_by_chain[chain_id] = variant_group.attrs[attr_name]
+            chain_id = str(attr_name.split('_')[-1])
+            pssm_paths_by_chain[chain_id] = str(variant_group.attrs[attr_name])
 
-    chain_id = variant_group.attrs['variant_chain_id']
+    chain_id = str(variant_group.attrs['variant_chain_id'])
 
-    residue_number = variant_group.attrs['variant_residue_number']
+    residue_number = int(variant_group.attrs['variant_residue_number'])
 
     if 'variant_insertion_code' in variant_group.attrs:
-        insertion_code = variant_group.attrs['variant_insertion_code']
+        insertion_code = str(variant_group.attrs['variant_insertion_code'])
     else:
         insertion_code = None
 
     if 'variant_protein_accession' in variant_group.attrs and 'variant_protein_residue_number' in variant_group.attrs:
 
-        protein_accession = variant_group.attrs['variant_protein_accession']
-        protein_residue_number = variant_group.attrs['variant_protein_residue_number']
+        protein_accession = str(variant_group.attrs['variant_protein_accession'])
+        protein_residue_number = int(variant_group.attrs['variant_protein_residue_number'])
     else:
         protein_accession = None
         protein_residue_number = None

@@ -330,7 +330,7 @@ class DataGenerator(object):
                 variant_group.require_group('grid_points')
 
                 try:
-                    center = DataGenerator._get_grid_center(variant)
+                    center = DataGenerator.get_grid_center(variant)
                     variant_group['grid_points'].create_dataset('center', data=center)
                     if verbose:
                         self.logger.info(
@@ -898,18 +898,16 @@ class DataGenerator(object):
 # ====================================================================================
 
     @staticmethod
-    def _get_grid_center(variant):
+    def get_grid_center(variant):
         "gets the C-alpha position of the variant residue"
 
-        sqldb = pdb2sql.pdb2sql(variant.pdb_path)
+        pdb = pdb2sql.pdb2sql(variant.pdb_path)
         try:
-            c_alpha_positions = sqldb.get("x,y,z",
-                                          chainID=variant.chain_id,
-                                          resSeq=variant.residue_number,
-                                          name="CA")
-
+            c_alpha_positions = pdb.get_xyz(chainID=variant.chain_id,
+                                            resSeq=variant.residue_number,
+                                            name="CA")
         finally:
-            sqldb._close()
+            pdb._close()
 
         if len(c_alpha_positions) == 0:
             raise ValueError("C-alpha of chain {} residue {} not found in {}"
@@ -947,7 +945,7 @@ class DataGenerator(object):
 
             # compute the data we want on the grid
             gt.GridTools(variant_group=f5[variant_name], variant=variant,
-                         grid_center=DataGenerator._get_grid_center(variant),
+                         grid_center=DataGenerator.get_grid_center(variant),
                          number_of_points=grid_info['number_of_points'],
                          resolution=grid_info['resolution'],
                          contact_distance=contact_distance,
@@ -1094,6 +1092,7 @@ class DataGenerator(object):
             variant_tqdm.set_postfix(variant=variant_name)
 
             variant = hdf5data.load_variant(f5[variant_name])
+            grid_center = self.get_grid_center(variant)
 
             # Determine which feature to map
             # if feature not given, then determine it for each variant
@@ -1125,7 +1124,7 @@ class DataGenerator(object):
                 gt.GridTools(
                     variant_group=f5[variant_name],
                     variant=variant,
-                    grid_center=DataGenerator._get_grid_center(variant),
+                    grid_center=grid_center,
                     number_of_points=grid_info['number_of_points'],
                     resolution=grid_info['resolution'],
                     atomic_densities=grid_info['atomic_densities'],
