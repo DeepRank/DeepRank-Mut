@@ -378,16 +378,14 @@ class DataGenerator(object):
 
                     # get the rotation axis and angle
                     if self.align is None:
-                        axis, angle = pdb2sql.transform.get_rot_axis_angle(
-                            random_seed)
+                        rotation_axis, rotation_angle = pdb2sql.transform.get_rot_axis_angle(random_seed)
                     else:
-                        axis, angle = self._get_aligned_rotation_axis_angle(random_seed,
-                                                                            self.align)
+                        rotation_axis, rotation_angle = self._get_aligned_rotation_axis_angle(random_seed, self.align)
 
                     # create the new pdb and get molecule center
                     # molecule center is the origin of rotation)
-                    mol_center = self._add_aug_pdb(
-                        variant_group, variant.pdb_path, 'complex', axis, angle)
+                    rotation_center = self._add_aug_pdb(variant_group, variant,
+                                                        'complex', rotation_axis, rotation_angle)
 
                     # copy the targets/features
                     if 'targets' in self.f5[variant_name]:
@@ -395,21 +393,13 @@ class DataGenerator(object):
                     self.f5.copy(variant_name + '/features/', variant_group)
 
                     # rotate the feature
-                    self._rotate_feature(variant_group, axis, angle, mol_center)
-
-                    # grid center used to create grid box
-                    variant_group.require_group('grid_points')
-                    center = pdb2sql.transform.rot_xyz_around_axis(
-                        self.f5[variant_name + '/grid_points/center'],
-                        axis, angle, mol_center)
-
-                    variant_group['grid_points'].create_dataset('center', data=center)
+                    self._rotate_feature(variant_group, rotation_axis, rotation_angle, rotation_center)
 
                     # store the rotation axis/angl/center as attriutes
                     # in case we need them later
-                    variant_group.attrs['axis'] = axis
-                    variant_group.attrs['angle'] = angle
-                    variant_group.attrs['center'] = mol_center
+                    variant_group.attrs['rotation_axis'] = rotation_axis
+                    variant_group.attrs['rotation_angle'] = rotation_angle
+                    variant_group.attrs['rotation_center'] = rotation_center
 
                 # cache aug variants if original variant has errored features
                 if feature_error_flag:
@@ -536,16 +526,14 @@ class DataGenerator(object):
 
                 # get the rotation axis and angle
                 if self.align is None:
-                    axis, angle = pdb2sql.transform.get_rot_axis_angle(
-                        random_seed)
+                    rotation_axis, rotation_angle = pdb2sql.transform.get_rot_axis_angle(random_seed)
                 else:
-                    axis, angle = self._get_aligned_rotation_axis_angle(random_seed,
-                                                                        self.align)
+                    rotation_axis, rotation_angle = self._get_aligned_rotation_axis_angle(random_seed, self.align)
 
                 # create the new pdb and get molecule center
                 # molecule center is the origin of rotation)
-                mol_center = self._add_aug_pdb(
-                    variant_group, f5[variant_name + '/complex'][()], 'complex', axis, angle)
+                rotation_center = self._add_aug_pdb(variant_group, variant, 'complex',
+                                                    rotation_axis, rotation_angle)
 
                 # copy the targets/features
                 if 'targets' in f5[variant_name]:
@@ -553,21 +541,13 @@ class DataGenerator(object):
                 f5.copy(variant_name + '/features/', variant_group)
 
                 # rotate the feature
-                self._rotate_feature(variant_group, axis, angle, variant_center)
-
-                # grid center used to create grid box
-                variant_group.require_group('grid_points')
-                center = pdb2sql.transform.rot_xyz_around_axis(
-                    f5[variant_name + '/grid_points/center'],
-                    axis, angle, mol_center)
-
-                variant_group['grid_points'].create_dataset('center', data=center)
+                self._rotate_feature(variant_group, rotation_axis, rotation_angle, rotation_center)
 
                 # store the rotation axis/angl/center as attriutes
                 # in case we need them later
-                variant_group.attrs['axis'] = axis
-                variant_group.attrs['angle'] = angle
-                variant_group.attrs['center'] = mol_center
+                variant_group.attrs['rotation_axis'] = rotation_axis
+                variant_group.attrs['rotation_angle'] = rotation_angle
+                variant_group.attrs['rotation_center'] = rotation_center
         f5.close()
         self.logger.info(
             f'\n# Successfully augmented data in {self.hdf5}')
@@ -1614,7 +1594,7 @@ class DataGenerator(object):
         return axis, angle
 
     # add a rotated pdb structure to the database
-    def _add_aug_pdb(self, variant_group, pdbfile, name, axis, angle):
+    def _add_aug_pdb(self, variant_group, variant, name, axis, angle):
         """Add augmented pdbs to the dataset.
 
         Args:
@@ -1630,16 +1610,15 @@ class DataGenerator(object):
         """
         # create the sqldb and extract positions
         if self.align is None:
-            sqldb = pdb2sql.pdb2sql(pdbfile)
+            sqldb = pdb2sql.pdb2sql(variant.pdb_path)
         else:
-            sqldb = self._get_aligned_sqldb(pdbfile, self.align)
+            sqldb = self._get_aligned_sqldb(variant.pdb_path, self.align)
 
         # rotate the positions
         pdb2sql.transform.rot_axis(sqldb, axis, angle)
 
         # get molecule center
-        xyz = sqldb.get('x,y,z')
-        center = np.mean(xyz, 0)
+        center = self.get_grid_center(variant)
 
         # get the pdb-format data
         data = sqldb.sql2pdb()
