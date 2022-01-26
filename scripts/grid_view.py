@@ -60,6 +60,9 @@ def render_grid_point(index_x, index_y, index_z, grid):
     "procedure to draw one grid point"
 
     value = grid.feature_data[index_x, index_y, index_z]
+    if value == 0.0:
+        return
+
     if value < 0.0:
         value = value / grid.min_value
         glColor4f(1.0, 0.0, 0.0, value)
