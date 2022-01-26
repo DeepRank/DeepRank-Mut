@@ -45,7 +45,6 @@ def test_generate():
 
     environment = Environment(pdb_root="test/data/pdb")
 
-    pdb_path = "test/101m.pdb"
     variants = [PdbVariantSelection("101m", 'A', 25, glycine, alanine),
                 PdbVariantSelection("1eau", 'A', 72, asparagine, alanine)]
 
@@ -70,7 +69,7 @@ def test_generate():
                 for coord in ['x', 'y', 'z']:
                     coords = f5["%s/grid_points/%s" % (variant_name, coord)]
                     for i in range(number_of_points - 1):
-                        eq_(coords[i + 1] - coords[i], resolution)
+                        eq_(round(coords[i + 1] - coords[i], 3), round(resolution, 3))
 
                 # Check for mapped features in the HDF5 file:
                 for map_name in ["Feature_ind", "AtomicDensities_ind"]:
@@ -131,6 +130,8 @@ def test_skip_error():
 def test_skip_nan(mock_map_features):
     "NaN features should not be added to the preprocessing"
 
+    environment = Environment(pdb_root="test/data/pdb")
+
     number_of_points = 20
 
     nan_dict = {}
@@ -144,8 +145,6 @@ def test_skip_nan(mock_map_features):
     mock_map_features.return_value = nan_dict
 
     tmp_dir = mkdtemp()
-
-    environment = Environment(pdb_root="test/data/pdb")
 
     variants = [PdbVariantSelection("101m", 'A', 25, glycine, alanine)]
 

@@ -25,7 +25,7 @@ def logif(string, cond): return logger.info(string) if cond else None
 
 class GridTools(object):
 
-    def __init__(self, environment, variant_group, variant,
+    def __init__(self, environment, variant_group, variant, grid_center,
                  number_of_points=30, resolution=1.0,
                  atomic_densities=None, atomic_densities_mode='ind',
                  feature=None, feature_mode='ind',
@@ -38,6 +38,7 @@ class GridTools(object):
             environment(Environment): the invironment settings
             variant_group(str): name of the group of the variant in the HDF5 file.
             variant (PdbVariantSelection): The variant
+            grid_center(numpy.array): the center position of the grid
             number_of_points(int, optional): number of points we want in
                 each direction of the grid.
             resolution(float, optional): distance(in Angs) between two points.
@@ -69,6 +70,9 @@ class GridTools(object):
         """
 
         self.environment = environment
+
+        # center of the grid
+        self.grid_center = grid_center
 
         # variant and hdf5 file
         self.variant_group = variant_group
@@ -162,9 +166,6 @@ class GridTools(object):
         # get the position/atom type .. of the complex
         self.read_pdb()
 
-        # get the contact atoms and interface center
-        self.get_contact_center()
-
         # define the grid
         self.define_grid_points()
 
@@ -219,24 +220,6 @@ class GridTools(object):
         pdb_path = get_pdb_path(self.environment.pdb_root, self.variant_group.attrs['pdb_ac'])
 
         self.sqldb = pdb2sql.interface(pdb_path)
-
-    # get the contact atoms and interface center
-    def get_contact_center(self):
-        """Get the center of conact atoms."""
-
-        contact_atom_pairs = get_residue_contact_atom_pairs(self.sqldb,
-                                                            self.variant.chain_id,
-                                                            self.variant.residue_number,
-                                                            self.variant.insertion_code,
-                                                            self.contact_distance)
-        contact_atom_ids = set([])
-        for atom1, atom2 in contact_atom_pairs:
-            contact_atom_ids.add(atom1.id)
-            contact_atom_ids.add(atom2.id)
-
-        # get interface center
-        self.center_contact = np.mean(
-            np.array(self.sqldb.get('x,y,z', rowID=list(contact_atom_ids))), 0)
 
     ################################################################
     # shortcut to add all the feature a
@@ -295,7 +278,7 @@ class GridTools(object):
               (self.res[0], self.res[1], self.res[2]), self.time)
 
         halfdim = 0.5 * (self.npts * self.res)
-        center = self.center_contact
+        center = self.grid_center
 
         low_lim = center - halfdim
         hgh_lim = low_lim + self.res * (np.array(self.npts) - 1)
@@ -445,10 +428,10 @@ class GridTools(object):
             Returns (triple): position(float list of length 3) and values(float list)
         """
 
-        position_dimension = 3
+        from deeprank.generate.DataGenerator import DataGenerator
 
-        position = row[:position_dimension]
-        values = row[position_dimension:]
+        position = row[:DataGenerator.FEATURE_POSITION_OFFSET]
+        values = row[DataGenerator.FEATURE_POSITION_OFFSET:]
 
         return position, values
 
@@ -733,9 +716,7 @@ class GridTools(object):
         """export the grid points to the hdf5 file."""
 
         hdf5data.store_grid_points(self.variant_group, self.x, self.y, self.z)
-        hdf5data.store_grid_center(self.variant_group, self.center_contact)
-
-        logger.info("store a grid for {}, centered at {}".format(str(self.variant), self.center_contact))
+        hdf5data.store_grid_center(self.variant_group, self.grid_center)
 
     # save the data in the hdf5 file
 
@@ -770,6 +751,5 @@ class GridTools(object):
             GridTools._check_features("%s[%s] from %s" % (data_name, key, str(self.variant)), data)
 
             data_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in data.shape]), np.min(data), np.max(data))
-            logger.info("stored grid data {} {} for {}: {}\n{}".format(data_name, key, str(self.variant), data_summary, data))
 
 ########################################################################
