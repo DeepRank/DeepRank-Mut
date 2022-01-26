@@ -39,6 +39,11 @@ def _printif(string, cond): return print(string) if cond else None
 
 class DataGenerator(object):
 
+
+    # In the feature dataset, the first three columns are xyz.
+    # The rest are feature values.
+    FEATURE_POSITION_OFFSET = 3
+
     def __init__(self, variants,
                  align=None,
                  compute_targets=None, compute_features=None,
@@ -325,7 +330,7 @@ class DataGenerator(object):
                 variant_group.require_group('grid_points')
 
                 try:
-                    center = self._get_grid_center(variant)
+                    center = DataGenerator._get_grid_center(variant)
                     variant_group['grid_points'].create_dataset('center', data=center)
                     if verbose:
                         self.logger.info(
@@ -892,7 +897,8 @@ class DataGenerator(object):
 #
 # ====================================================================================
 
-    def _get_grid_center(self, variant):
+    @staticmethod
+    def _get_grid_center(variant):
         "gets the C-alpha position of the variant residue"
 
         sqldb = pdb2sql.interface(variant.pdb_path)
@@ -937,6 +943,7 @@ class DataGenerator(object):
 
             # compute the data we want on the grid
             gt.GridTools(variant_group=f5[variant_name], variant=variant,
+                         grid_center=DataGenerator._get_grid_center(variant),
                          number_of_points=grid_info['number_of_points'],
                          resolution=grid_info['resolution'],
                          contact_distance=contact_distance,
@@ -1114,6 +1121,7 @@ class DataGenerator(object):
                 gt.GridTools(
                     variant_group=f5[variant_name],
                     variant=variant,
+                    grid_center=DataGenerator._get_grid_center(variant),
                     number_of_points=grid_info['number_of_points'],
                     resolution=grid_info['resolution'],
                     atomic_densities=grid_info['atomic_densities'],
@@ -1669,11 +1677,11 @@ class DataGenerator(object):
             if data.shape[0] != 0:
 
                 # xyz
-                xyz = data[:, 1:4]
+                xyz = data[:, :DataGenerator.FEATURE_POSITION_OFFSET]
 
                 # get rotated xyz
                 xyz_rot = pdb2sql.transform.rot_xyz_around_axis(
                     xyz, axis, angle, center)
 
                 # put back the data
-                variant_group['features/' + fn][:, 1:4] = xyz_rot
+                variant_group['features/' + fn][:, :DataGenerator.FEATURE_POSITION_OFFSET] = xyz_rot
