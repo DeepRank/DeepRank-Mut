@@ -712,8 +712,6 @@ class GridTools(object):
         hdf5data.store_grid_points(self.variant_group, self.x, self.y, self.z)
         hdf5data.store_grid_center(self.variant_group, self.grid_center)
 
-        logger.info("store a grid for {}, centered at {}".format(str(self.variant), self.grid_center))
-
     # save the data in the hdf5 file
 
     @staticmethod
