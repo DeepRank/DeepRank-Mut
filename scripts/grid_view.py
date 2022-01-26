@@ -160,6 +160,7 @@ if __name__ == "__main__":
             if amount_scrolled > 0.0:
                 rotation_matrix = pyrr.matrix33.create_from_axis_rotation(mouse_motion_axis, 0.05 * amount_scrolled)
                 eye_direction = pyrr.matrix33.apply_to_vector(rotation_matrix, eye_direction)
+                eye_direction = eye_direction / numpy.linalg.norm(eye_direction)
 
         view_matrix = pyrr.matrix44.create_look_at(grid.center - eye_direction * zoom,
                                                    grid.center, up_direction)
