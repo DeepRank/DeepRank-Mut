@@ -42,8 +42,7 @@ def test_generate():
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
     target_names = ["test.target.target1"]
 
-    pdb_path = "test/101m.pdb"
-    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine),
+    variants = [PdbVariantSelection("test/data/101m.pdb", 'A', 25, glycine, alanine),
                 PdbVariantSelection("test/data/1eau.pdb", 'A', 72, asparagine, alanine)]
 
     tmp_dir = mkdtemp()
@@ -67,7 +66,7 @@ def test_generate():
                 for coord in ['x', 'y', 'z']:
                     coords = f5["%s/grid_points/%s" % (variant_name, coord)]
                     for i in range(number_of_points - 1):
-                        eq_(coords[i + 1] - coords[i], resolution)
+                        eq_(round(coords[i + 1] - coords[i], 3), round(resolution, 3))
 
                 # Check for mapped features in the HDF5 file:
                 for map_name in ["Feature_ind", "AtomicDensities_ind"]:
@@ -91,7 +90,7 @@ def test_skip_error():
     tmp_dir = mkdtemp()
 
     # Use one correct pdb file and one wrong pdb file
-    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine),
+    variants = [PdbVariantSelection("test/data/101m.pdb", 'A', 25, glycine, alanine),
                 PdbVariantSelection("test/data/wrng.pdb", "A", 1, glycine, alanine)]
 
     # These classes are made for testing, they give meaningless numbers.
@@ -140,7 +139,7 @@ def test_skip_nan(mock_map_features):
 
     tmp_dir = mkdtemp()
 
-    variants = [PdbVariantSelection("test/101m.pdb", 'A', 25, glycine, alanine)]
+    variants = [PdbVariantSelection("test/data/101m.pdb", 'A', 25, glycine, alanine)]
 
     feature_names = ["test.feature.feature1", "test.feature.feature2"]
     target_names = ["test.target.target1"]
