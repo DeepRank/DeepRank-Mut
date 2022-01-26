@@ -901,17 +901,21 @@ class DataGenerator(object):
     def _get_grid_center(variant):
         "gets the C-alpha position of the variant residue"
 
-        sqldb = pdb2sql.interface(variant.pdb_path)
+        sqldb = pdb2sql.pdb2sql(variant.pdb_path)
         try:
-            c_alpha_position = sqldb.get("x,y,z",
-                                         chainID=variant.chain_id,
-                                         resSeq=variant.residue_number,
-                                         name="CA")[0]
+            c_alpha_positions = sqldb.get("x,y,z",
+                                          chainID=variant.chain_id,
+                                          resSeq=variant.residue_number,
+                                          name="CA")
 
         finally:
             sqldb._close()
 
-        return c_alpha_position
+        if len(c_alpha_positions) == 0:
+            raise ValueError("C-alpha of chain {} residue {} not found in {}"
+                             .format(variant.chain_id, variant.residue_number, variant.pdb_path))
+
+        return c_alpha_positions[0]
 
     def precompute_grid(self,
                         grid_info,
