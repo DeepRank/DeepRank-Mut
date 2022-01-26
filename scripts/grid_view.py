@@ -61,7 +61,7 @@ def render_grid_point(index_x, index_y, index_z, grid):
 
     value = grid.feature_data[index_x, index_y, index_z]
     if value == 0.0:
-        return
+        glColor4f(0.0, 0.0, 0.0, 0.0)
 
     if value < 0.0:
         value = value / grid.min_value
