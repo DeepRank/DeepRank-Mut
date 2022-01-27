@@ -91,7 +91,7 @@ def test_atomic_contacts_mapping():
 
             points_count = 30
 
-            center = DataGenerator.get_grid_center(variant)
+            center = DataGenerator.get_grid_center(environment, variant)
 
             # Build the grid and map the features.
             gridtools = GridTools(environment, variant_group, variant, center,
@@ -137,7 +137,7 @@ def test_nan():
 
             compute_contact_feature(environment, feature_group, raw_feature_group, variant)
 
-            center = DataGenerator.get_grid_center(variant)
+            center = DataGenerator.get_grid_center(environment, variant)
 
             # Build the grid and map the features.
             gridtools = GridTools(environment, variant_group, variant, center,
@@ -171,7 +171,7 @@ def test_abnormal_contacts_features():
             f5.copy(variant_group.name + '/features/', augmented_variant_group)
             hdf5data.store_variant(augmented_variant_group, variant)
 
-            center = DataGenerator.get_grid_center(variant)
+            center = DataGenerator.get_grid_center(environment, variant)
             axis, angle = pdb2sql.transform.get_rot_axis_angle(seed=None)
             DataGenerator._rotate_feature(augmented_variant_group, axis, angle, center)
 
@@ -182,12 +182,12 @@ def test_abnormal_contacts_features():
             assert numpy.all(unmapped_variant_charges == unmapped_augmented_charges), "augmentation changed the unmapped charges"
 
             for entry_group in [variant_group, augmented_variant_group]:
-                GridTools(entry_group, variant, center,
-                         number_of_points=20, resolution=1.0,
-                         atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
-                         feature=[COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME],
-                         contact_distance=8.5,
-                         try_sparse=False)
+                GridTools(environment, entry_group, variant, center,
+                          number_of_points=20, resolution=1.0,
+                          atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+                          feature=[COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME],
+                          contact_distance=8.5,
+                          try_sparse=False)
 
             charges = variant_group["mapped_features/Feature_ind/charge/value"][()]
             vanderwaals = variant_group["mapped_features/Feature_ind/vdwaals/value"][()]
