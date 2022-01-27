@@ -54,7 +54,7 @@ def __compute_feature__(pdb_path, feature_group, raw_feature_group, variant):
     feature_object = FeatureClass("Atomic")
 
     if torch.cuda.is_available():
-        device = "gpu"
+        device = "cuda"
     else:
         device = "cpu"
 
