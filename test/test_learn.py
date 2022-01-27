@@ -87,7 +87,7 @@ def test_learn():
             variant_data = f5['epoch_0000/train/variant'][()]
             assert len(variant_data.shape) == 2, "unexpected variant data shape: {}".format(variant_data.shape)
             assert variant_data.shape[1] == 7, "unexpected variant data row format: {}".format(variant_data[0, :])
-            assert len(variant_data[0, 0].decode()) == 4, "unexpected structure {}".format(variant_data[0, 0])
+            assert len(variant_data[0, 0]) == 4, "unexpected structure {}".format(variant_data[0, 0])
 
     finally:
         rmtree(work_dir_path)
