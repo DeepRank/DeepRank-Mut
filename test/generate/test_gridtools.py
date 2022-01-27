@@ -151,8 +151,8 @@ def test_nan():
 
 
 def test_abnormal_contacts_features():
-    pdb_path = "test/data/7req.pdb"
-    variant = PdbVariantSelection(pdb_path, "A", 255, glutamate, aspartate)
+    environment = Environment(pdb_root="test/data/pdb")
+    variant = PdbVariantSelection("7req", "A", 255, glutamate, aspartate)
 
     hdf5_file, hdf5_path = mkstemp()
     os.close(hdf5_file)
@@ -165,7 +165,7 @@ def test_abnormal_contacts_features():
             group_xyz = variant_group.require_group("features")
             group_raw = variant_group.require_group("features_raw")
 
-            compute_contact_feature(pdb_path, group_xyz, group_raw, variant)
+            compute_contact_feature(environment, group_xyz, group_raw, variant)
 
             augmented_variant_group = f5.require_group(str(variant) + "_r001")
             f5.copy(variant_group.name + '/features/', augmented_variant_group)
