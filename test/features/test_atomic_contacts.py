@@ -24,7 +24,7 @@ def _find_atom(atoms, chain_id, residue_number, atom_name):
 
 def test_forcefield():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("1CRN", "A", None, None, None)  # don't care about the amino acid change
 
@@ -65,8 +65,9 @@ def test_forcefield():
 
 
 def test_has_negative_features():
-    pdb_path = "test/data/7req.pdb"
-    variant = PdbVariantSelection(pdb_path, "A", 255, glutamate, aspartate)
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
+
+    variant = PdbVariantSelection("7req", "A", 255, glutamate, aspartate)
 
     hdf5_file, hdf5_path = tempfile.mkstemp()
     os.close(hdf5_file)
@@ -75,7 +76,7 @@ def test_has_negative_features():
         with h5py.File(hdf5_path, 'w') as f5:
             group_xyz = f5.require_group("xyz")
             group_raw = f5.require_group("raw")
-            __compute_feature__(pdb_path, group_xyz, group_raw, variant)
+            __compute_feature__(environment, group_xyz, group_raw, variant)
 
             charges = group_xyz[CHARGE_FEATURE_NAME][()]
             vanderwaals = group_xyz[VANDERWAALS_FEATURE_NAME][()]
@@ -89,7 +90,7 @@ def test_has_negative_features():
 
 def test_forcefield_on_missing_parameters():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     # this structure has nucleic acid residues
     # don't care about the amino acid change
@@ -165,7 +166,7 @@ def _compute_features(environment, variant):
 
 def test_computed_features():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variants = [PdbVariantSelection("101M", "C", 25, "G", "A"),
                 PdbVariantSelection("1MEY", "C", 10, "C", "A")]

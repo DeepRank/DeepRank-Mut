@@ -53,7 +53,7 @@ def test_atomic_contacts_mapping():
         We also mapping these features to the grid and check that this happens correctly.
     """
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("101M", 'A', 138, phenylalanine, tyrosine)
     variant_name = "101M-F138Y"
@@ -116,7 +116,7 @@ def test_atomic_contacts_mapping():
 def test_nan():
     "this variant was reported as NaN-causing"
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("5MNH", 'A', 153, aspartate, asparagine)
     variant_name = "NaN-causing"
@@ -151,7 +151,7 @@ def test_nan():
 
 
 def test_abnormal_contacts_features():
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
     variant = PdbVariantSelection("7req", "A", 255, glutamate, aspartate)
 
     hdf5_file, hdf5_path = mkstemp()
@@ -234,7 +234,7 @@ def test_feature_mapping():
     tmp_dir = mkdtemp()
 
     try:
-        environment = Environment(pdb_root=tmp_dir)
+        environment = Environment(pdb_root=tmp_dir, device="cpu")
 
         pdb_path = os.path.join(tmp_dir, "%s.pdb" % pdb_name)
 
