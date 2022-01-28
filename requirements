@@ -15,3 +15,6 @@ pdbecif
 tables
 freesasa
 nose
+glfw
+pyrr
+pyopengl

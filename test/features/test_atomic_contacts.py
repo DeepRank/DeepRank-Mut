@@ -7,12 +7,13 @@ import numpy
 from nose.tools import ok_, eq_
 from pdb2sql import pdb2sql
 
-from deeprank.features.atomic_contacts import __compute_feature__
+from deeprank.features.atomic_contacts import (__compute_feature__, CHARGE_FEATURE_NAME,
+                                               COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME)
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.forcefield import atomic_forcefield
 from deeprank.operate.pdb import get_atoms, get_pdb_path
 from deeprank.models.environment import Environment
-from deeprank.domain.amino_acid import serine, cysteine
+from deeprank.domain.amino_acid import serine, cysteine, aspartate, glutamate
 
 
 def _find_atom(atoms, chain_id, residue_number, atom_name):
@@ -23,7 +24,7 @@ def _find_atom(atoms, chain_id, residue_number, atom_name):
 
 def test_forcefield():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("1CRN", "A", None, None, None)  # don't care about the amino acid change
 
@@ -63,9 +64,33 @@ def test_forcefield():
         ok_(p.intra_sigma >= min_ and p.intra_sigma <= max_)
 
 
+def test_has_negative_features():
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
+
+    variant = PdbVariantSelection("7req", "A", 255, glutamate, aspartate)
+
+    hdf5_file, hdf5_path = tempfile.mkstemp()
+    os.close(hdf5_file)
+
+    try:
+        with h5py.File(hdf5_path, 'w') as f5:
+            group_xyz = f5.require_group("xyz")
+            group_raw = f5.require_group("raw")
+            __compute_feature__(environment, group_xyz, group_raw, variant)
+
+            charges = group_xyz[CHARGE_FEATURE_NAME][()]
+            vanderwaals = group_xyz[VANDERWAALS_FEATURE_NAME][()]
+            coulomb = group_xyz[COULOMB_FEATURE_NAME][()]
+    finally:
+        os.remove(hdf5_path)
+
+    assert len(numpy.nonzero(charges < 0.0)) > 0, "no negative charges"
+    assert len(numpy.nonzero(vanderwaals < 0.0)) > 0, "no negative vanderwaals"
+    assert len(numpy.nonzero(coulomb < 0.0)) > 0, "no negative coulomb"
+
 def test_forcefield_on_missing_parameters():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     # this structure has nucleic acid residues
     # don't care about the amino acid change
@@ -141,7 +166,7 @@ def _compute_features(environment, variant):
 
 def test_computed_features():
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variants = [PdbVariantSelection("101M", "C", 25, "G", "A"),
                 PdbVariantSelection("1MEY", "C", 10, "C", "A")]

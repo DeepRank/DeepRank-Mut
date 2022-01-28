@@ -54,19 +54,19 @@ def load_variant(variant_group):
 
     pdb_ac = variant_group.attrs['pdb_ac']
 
-    chain_id = variant_group.attrs['variant_chain_id']
+    chain_id = str(variant_group.attrs['variant_chain_id'])
 
-    residue_number = variant_group.attrs['variant_residue_number']
+    residue_number = int(variant_group.attrs['variant_residue_number'])
 
     if 'variant_insertion_code' in variant_group.attrs:
-        insertion_code = variant_group.attrs['variant_insertion_code']
+        insertion_code = str(variant_group.attrs['variant_insertion_code'])
     else:
         insertion_code = None
 
     if 'variant_protein_accession' in variant_group.attrs and 'variant_protein_residue_number' in variant_group.attrs:
 
-        protein_accession = variant_group.attrs['variant_protein_accession']
-        protein_residue_number = variant_group.attrs['variant_protein_residue_number']
+        protein_accession = str(variant_group.attrs['variant_protein_accession'])
+        protein_residue_number = int(variant_group.attrs['variant_protein_residue_number'])
     else:
         protein_accession = None
         protein_residue_number = None
@@ -196,7 +196,8 @@ def load_grid_data(variant_group, feature_name):
         Returns (dict(str, matrix(number))): a dictionary, containing the data per subfeature name
     """
 
-    grid_shape = numpy.shape(load_grid_points(variant_group))
+    grid_xs, grid_ys, grid_zs = load_grid_points(variant_group)
+    grid_shape = (len(grid_xs), len(grid_ys), len(grid_zs))
 
     feature_group = variant_group["mapped_features/%s" % feature_name]
 
@@ -211,6 +212,6 @@ def load_grid_data(variant_group, feature_name):
                                   grid_shape)
             grid_data[subfeature_name] = numpy.array(spg.to_dense())
         else:
-            grid_data[subfeature_name] = numpy.array(subfeature_group['value'])
+            grid_data[subfeature_name] = numpy.array(subfeature_group['value'][:])
 
     return grid_data

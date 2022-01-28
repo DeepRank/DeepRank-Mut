@@ -23,6 +23,7 @@ from deeprank.operate.hdf5data import load_variant
 from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
+from deeprank.tools.metrics import get_tp_tn_fp_fn, get_mcc
 
 matplotlib.use('agg')
 
@@ -355,6 +356,9 @@ class NeuralNet():
                     num_workers=num_workers,
                     save_epoch=save_epoch,
                     save_model=save_model)
+
+        if self.task == "class":
+            NeuralNet.plot_mcc(self.f5, "mcc-plot.png")
 
         self.f5.close()
         logger.info(
@@ -1052,6 +1056,54 @@ class NeuralNet():
 
         fig.savefig(figname, bbox_inches='tight')
         plt.close()
+
+
+    @staticmethod
+    def plot_mcc(data_hdf5_file, figure_path):
+        """ Plot MCC values on the Y-axis and epochs on the X-axis
+
+        Args:
+            figname (str): filename
+        """
+
+        plot_colors = {'train': 'red', 'valid': 'blue', 'test': 'green'}
+
+        # gather data from hdf5 file
+        plot_data = {}
+        for key in data_hdf5_file:
+            if key.startswith("epoch_"):
+                epoch_number = int(key.split('_')[1])
+
+                for phase_name in plot_colors:
+                    if phase_name in data_hdf5_file[key]:
+
+                        if phase_name not in plot_data:
+                            plot_data[phase_name] = {'epochs':[], 'mcc': []}
+
+                        phase_group = data_hdf5_file["{}/{}".format(key, phase_name)]
+
+                        outputs = phase_group["outputs"][()]
+                        targets = phase_group["targets"][()]
+
+                        tp, tn, fp, fn = get_tp_tn_fp_fn(outputs, targets)
+                        mcc = get_mcc(tp, tn, fp, fn)
+
+                        plot_data[phase_name]['epochs'].append(epoch_number)
+                        plot_data[phase_name]['mcc'].append(mcc)
+
+        # create plot
+        figure, axis = plt.subplots()
+        for phase_name, color in plot_colors.items():
+            if phase_name in plot_data:
+                plt.plot(plot_data[phase_name]['epochs'], plot_data[phase_name]['mcc'], c=color, label=phase_name)
+
+        legend = axis.legend(loc='upper left')
+        axis.set_xlabel("epoch")
+        axis.set_ylabel("MCC")
+
+        figure.savefig(figure_path)
+        plt.close()
+
 
     def plot_hit_rate(self, figname):
         """Plot the hit rate of the different training/valid/test sets.

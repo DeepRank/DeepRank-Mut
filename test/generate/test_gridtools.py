@@ -1,6 +1,6 @@
 import os
 import pkg_resources
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 import shutil
 import logging
 
@@ -11,12 +11,15 @@ import pdb2sql
 
 from deeprank.operate import hdf5data
 from deeprank.generate.GridTools import GridTools
+from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.models.variant import PdbVariantSelection
-from deeprank.features.atomic_contacts import __compute_feature__ as compute_contact_feature
 from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, unknown_amino_acid
 from deeprank.models.environment import Environment
 from deeprank.operate.pdb import get_pdb_path
 from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, aspartate, asparagine, unknown_amino_acid
+from deeprank.features.atomic_contacts import (__compute_feature__ as compute_contact_feature,
+                                               COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME)
+from deeprank.domain.amino_acid import phenylalanine, tyrosine, valine, aspartate, glutamate, asparagine, unknown_amino_acid
 
 
 _log = logging.getLogger(__name__)
@@ -50,7 +53,7 @@ def test_atomic_contacts_mapping():
         We also mapping these features to the grid and check that this happens correctly.
     """
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("101M", 'A', 138, phenylalanine, tyrosine)
     variant_name = "101M-F138Y"
@@ -88,8 +91,10 @@ def test_atomic_contacts_mapping():
 
             points_count = 30
 
+            center = DataGenerator.get_grid_center(environment, variant)
+
             # Build the grid and map the features.
-            gridtools = GridTools(environment, variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant, center,
                                   number_of_points=points_count, resolution=1.0,
                                   atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
                                   feature=feature_types,
@@ -111,7 +116,7 @@ def test_atomic_contacts_mapping():
 def test_nan():
     "this variant was reported as NaN-causing"
 
-    environment = Environment(pdb_root="test/data/pdb")
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
     variant = PdbVariantSelection("5MNH", 'A', 153, aspartate, asparagine)
     variant_name = "NaN-causing"
@@ -132,8 +137,10 @@ def test_nan():
 
             compute_contact_feature(environment, feature_group, raw_feature_group, variant)
 
+            center = DataGenerator.get_grid_center(environment, variant)
+
             # Build the grid and map the features.
-            gridtools = GridTools(environment, variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant, center,
                                   number_of_points=20, resolution=1.0,
                                   atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
                                   feature=feature_types,
@@ -141,6 +148,75 @@ def test_nan():
                                   try_sparse=False)
     finally:
         shutil.rmtree(tmp_dir)
+
+
+def test_abnormal_contacts_features():
+    environment = Environment(pdb_root="test/data/pdb", device="cpu")
+    variant = PdbVariantSelection("7req", "A", 255, glutamate, aspartate)
+
+    hdf5_file, hdf5_path = mkstemp()
+    os.close(hdf5_file)
+
+    try:
+        with h5py.File(hdf5_path, 'w') as f5:
+            variant_group = f5.require_group(str(variant))
+            hdf5data.store_variant(variant_group, variant)
+
+            group_xyz = variant_group.require_group("features")
+            group_raw = variant_group.require_group("features_raw")
+
+            compute_contact_feature(environment, group_xyz, group_raw, variant)
+
+            augmented_variant_group = f5.require_group(str(variant) + "_r001")
+            f5.copy(variant_group.name + '/features/', augmented_variant_group)
+            hdf5data.store_variant(augmented_variant_group, variant)
+
+            center = DataGenerator.get_grid_center(environment, variant)
+            axis, angle = pdb2sql.transform.get_rot_axis_angle(seed=None)
+            DataGenerator._rotate_feature(augmented_variant_group, axis, angle, center)
+
+            unmapped_variant_charges = variant_group["features/charge"][:, 3]
+            unmapped_augmented_charges = augmented_variant_group["features/charge"][:, 3]
+
+            # xyz are expected to change from rotation, charges must stay the same.
+            assert numpy.all(unmapped_variant_charges == unmapped_augmented_charges), "augmentation changed the unmapped charges"
+
+            for entry_group in [variant_group, augmented_variant_group]:
+                GridTools(environment, entry_group, variant, center,
+                          number_of_points=20, resolution=1.0,
+                          atomic_densities={'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+                          feature=[COULOMB_FEATURE_NAME, VANDERWAALS_FEATURE_NAME, CHARGE_FEATURE_NAME],
+                          contact_distance=8.5,
+                          try_sparse=False)
+
+            charges = variant_group["mapped_features/Feature_ind/charge/value"][()]
+            vanderwaals = variant_group["mapped_features/Feature_ind/vdwaals/value"][()]
+            coulomb = variant_group["mapped_features/Feature_ind/coulomb/value"][()]
+
+            augmented_charges = augmented_variant_group["mapped_features/Feature_ind/charge/value"][()]
+            augmented_vanderwaals = augmented_variant_group["mapped_features/Feature_ind/vdwaals/value"][()]
+            augmented_coulomb = augmented_variant_group["mapped_features/Feature_ind/coulomb/value"][()]
+    finally:
+        os.remove(hdf5_path)
+
+    assert len(numpy.nonzero(charges < 0.0)) > 0, "no negative charges in variant group"
+    assert len(numpy.nonzero(vanderwaals < 0.0)) > 0, "no negative vanderwaals in variant group"
+    assert len(numpy.nonzero(coulomb < 0.0)) > 0, "no negative coulomb in variant group"
+
+    assert len(numpy.nonzero(augmented_charges < 0.0)) > 0, "no negative charges in augmented variant group"
+    assert len(numpy.nonzero(augmented_vanderwaals < 0.0)) > 0, "no negative vanderwaals augmented variant group"
+    assert len(numpy.nonzero(augmented_coulomb < 0.0)) > 0, "no negative coulomb augmented variant group"
+
+    assert len(numpy.nonzero(charges > 0.0)) > 0, "no positive charges in variant group"
+    assert len(numpy.nonzero(vanderwaals > 0.0)) > 0, "no positive vanderwaals in variant group"
+    assert len(numpy.nonzero(coulomb > 0.0)) > 0, "no positive coulomb in variant group"
+
+    assert len(numpy.nonzero(augmented_charges > 0.0)) > 0, "no positive charges in augmented variant group"
+    assert len(numpy.nonzero(augmented_vanderwaals > 0.0)) > 0, "no positive vanderwaals augmented variant group"
+    assert len(numpy.nonzero(augmented_coulomb > 0.0)) > 0, "no positive coulomb augmented variant group"
+
+    assert numpy.all(numpy.abs(charges) < 5.0), "extreme charges encountered in variant grid"
+    assert numpy.all(numpy.abs(augmented_charges) < 5.0), "extreme charges encountered in augmented grid"
 
 
 def test_feature_mapping():
@@ -158,7 +234,7 @@ def test_feature_mapping():
     tmp_dir = mkdtemp()
 
     try:
-        environment = Environment(pdb_root=tmp_dir)
+        environment = Environment(pdb_root=tmp_dir, device="cpu")
 
         pdb_path = os.path.join(tmp_dir, "%s.pdb" % pdb_name)
 
@@ -189,6 +265,7 @@ def test_feature_mapping():
             feature_type_name = "testfeature"
             chain_id = "A"
             chain_number = 0
+            center = [0.0, 0.0, 0.0]
             position = [10.0, 10.0, 10.0]  # this should fit inside the grid
             value = 0.923
 
@@ -198,7 +275,7 @@ def test_feature_mapping():
             points_count = 30
 
             # Build the grid and map the features.
-            gridtools = GridTools(environment, variant_group, variant,
+            gridtools = GridTools(environment, variant_group, variant, center,
                                   number_of_points=points_count, resolution=1.0,
                                   atomic_densities={'C': 1.7},  # only collect density data on carbon
                                   feature=[feature_type_name],

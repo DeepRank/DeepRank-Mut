@@ -1,5 +1,5 @@
 import os
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 from shutil import rmtree
 
 import h5py
@@ -87,7 +87,20 @@ def test_learn():
             variant_data = f5['epoch_0000/train/variant'][()]
             assert len(variant_data.shape) == 2, "unexpected variant data shape: {}".format(variant_data.shape)
             assert variant_data.shape[1] == 7, "unexpected variant data row format: {}".format(variant_data[0, :])
-            assert len(variant_data[0, 0].decode()) == 4, "unexpected structure {}".format(variant_data[0, 0])
+            assert len(variant_data[0, 0]) == 4, "unexpected structure {}".format(variant_data[0, 0])
 
     finally:
         rmtree(work_dir_path)
+
+
+def test_plot_mcc():
+
+    plot_file, plot_path = mkstemp(prefix="plot-mcc", suffix=".png")
+    os.close(plot_file)
+
+    try:
+        with h5py.File("test/data/epoch_data.hdf5", "r") as f5:
+            NeuralNet.plot_mcc(f5, plot_path)
+    finally:
+        if os.path.isfile(plot_path):
+            os.remove(plot_path)
