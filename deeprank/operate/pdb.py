@@ -21,6 +21,7 @@ def get_pdb_path(pdb_root, pdb_ac):
                  os.path.join(pdb_root, "pdb{}.ent".format(pdb_ac.lower())),
                  os.path.join(pdb_root, pdb_ac.lower()[1: 3], "pdb{}.ent".format(pdb_ac.lower())),
                  os.path.join(pdb_root, pdb_ac.upper(), "{}.pdb".format(pdb_ac.upper())),
+                 os.path.join(pdb_root, pdb_ac.upper(), "{}.pdb".format(pdb_ac.lower())),
                  os.path.join(pdb_root, pdb_ac.lower(), "{}.pdb".format(pdb_ac.lower()))]:
 
         if os.path.isfile(path):
