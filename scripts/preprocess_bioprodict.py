@@ -177,7 +177,7 @@ def get_pdb_mappings(hdf5_path, pdb_root, pssm_root, variant_data):
         residue_number = int(swap[3: -3])
         var_amino_acid_code = swap[-3:]
 
-        variants_section= variant_section.iloc[:20] 
+        variants_section= variant_section.iloc[:3] 
 
         for _, row in variants_section.iterrows():  # each row maps the variant to one pdb entry
 
