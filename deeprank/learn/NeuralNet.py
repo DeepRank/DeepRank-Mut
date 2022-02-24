@@ -810,7 +810,7 @@ class NeuralNet():
             warnings.warn(f'Empty input in data_loader {data_loader}.')
 
         epoch_logger.info("running loss: {}".format(running_loss))
-        data['loss'] = [running_loss]
+        data['loss'] = running_loss
 
         return running_loss, data
 
@@ -1058,8 +1058,9 @@ class NeuralNet():
     @staticmethod
     def _export_epoch_tensorboard(epoch_number, pass_, task, epoch_data, tensorboard_writer):
 
-        loss = epoch_data['loss'][0]
-        tensorboard_writer.add_scalar("loss", loss, epoch_number)
+        if 'loss' in epoch_data:
+            loss = epoch_data['loss']
+            tensorboard_writer.add_scalar("loss", loss, epoch_number)
 
         if task == "class":
             tp, tn, fp, fn = get_tp_tn_fp_fn(epoch_data['outputs'], epoch_data['targets'])
