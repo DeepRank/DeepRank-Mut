@@ -1061,29 +1061,10 @@ class NeuralNet():
         loss = epoch_data['loss'][0]
         tensorboard_writer.add_scalar("loss", loss, epoch_number)
 
-        fp, fn, tp, tn = 0, 0, 0, 0
-
-        for mol_index, mol_name in enumerate(epoch_data['mol']):
-            output = epoch_data['outputs'][mol_index]
-            tensorboard_writer.add_scalar(f"{mol_name}_output", output, epoch_number)
-
-            target = epoch_data['targets'][mol_index]
-            tensorboard_writer.add_scalar(f"{mol_name}_target", target, epoch_number)
-
-            if output > 0.0 and target > 0.0:
-                tp += 1
-
-            elif output <=0.0 and target <= 0.0:
-                tn += 1
-
-            elif output > 0.0 and target <= 0.0:
-                fp += 1
-
-            elif output <= 0.0 and target > 0.0:
-                fn += 1
-
         if task == "class":
-            mcc = (tn * tp - fp * fn) / np.sqrt((tn + fn) * (fp + tp) * (tn + fp) * (fn + tp))
+            tp, tn, fp, fn = get_tp_tn_fp_fn(epoch_data['outputs'], epoch_data['targets'])
+
+            mcc = get_mcc(tp, tn, fp, fn)
             tensorboard_writer.add_scalar("MCC", mcc, epoch_number)
 
             accuracy = (tp + tn) / (tp + tn + fp + fn) 
