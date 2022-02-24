@@ -24,6 +24,7 @@ from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
 from deeprank.tools.metrics import get_tp_tn_fp_fn, get_mcc
+from torch.utils.tensorboard import SummaryWriter
 
 matplotlib.use('agg')
 
@@ -36,7 +37,6 @@ class NeuralNet():
                  pretrained_model=None,
                  cuda=False, ngpu=0,
                  plot=True,
-                 save_classmetrics=False,
                  outdir='./'):
         """Train a Convolutional Neural Network for DeepRank.
 
@@ -78,12 +78,6 @@ class NeuralNet():
             ngpu (int): number of GPU to be used.
 
             plot (bool): Plot the prediction results.
-
-            save_classmetrics (bool): Save and plot classification metrics.
-                Classification metrics include:
-                - accuracy(ACC)
-                - sensitivity(TPR)
-                - specificity(TNR)
 
             outdir (str): output directory
 
@@ -196,11 +190,6 @@ class NeuralNet():
         # plot or not plot
         self.plot = plot
 
-        # plot and save classification metrics or not
-        self.save_classmetrics = save_classmetrics
-        if self.save_classmetrics:
-            self.metricnames = ['acc', 'tpr', 'tnr']
-
         # output directory
         self.outdir = outdir
         if self.plot:
@@ -286,14 +275,13 @@ class NeuralNet():
     def train(self,
               nepoch=50,
               divide_trainset=None,
-              hdf5='epoch_data.hdf5',
+              tensorboard_directory=None,
               train_batch_size=10,
               preshuffle=True,
               preshuffle_seed=None,
-              export_intermediate=True,
               num_workers=1,
-              save_model='best',
-              save_epoch='intermediate'):
+              save_model='best'):
+
         """Perform a simple training of the model.
 
         Args:
@@ -303,7 +291,7 @@ class NeuralNet():
                 the training, validation and test set.
                 Examples: [0.7, 0.2, 0.1], [0.8, 0.2], None
 
-            hdf5 (str, optional): file to store the training results
+            tensorboard_directory (path, optional): where to store the training results
 
             train_batch_size (int, optional): size of the batch
 
@@ -312,26 +300,15 @@ class NeuralNet():
 
             preshuffle_seed (int, optional): set random seed for preshuffle
 
-            export_intermediate (bool, optional): export data at
-                intermediate epochs.
-
             num_workers (int, optional): number of workers to be used to
                 prepare the batch data
 
             save_model (str, optional): 'best' or 'all', save only the
                 best model or all models.
-
-            save_epoch (str, optional): 'intermediate' or 'all',
-                save the epochs data to HDF5.
-
         """
         logger.info(f'\n: Batch Size: {train_batch_size}')
         if self.cuda:
             logger.info(f': NGPU      : {self.ngpu}')
-
-        # hdf5 support
-        fname = os.path.join(self.outdir, hdf5)
-        self.f5 = h5py.File(fname, 'w')
 
         # divide the set in train+ valid and test
         if divide_trainset is not None:
@@ -351,16 +328,11 @@ class NeuralNet():
         t0 = time.time()
         self._train(index_train, index_valid, index_test,
                     nepoch=nepoch,
+                    tensorboard_directory=tensorboard_directory,
                     train_batch_size=train_batch_size,
-                    export_intermediate=export_intermediate,
                     num_workers=num_workers,
-                    save_epoch=save_epoch,
                     save_model=save_model)
 
-        if self.task == "class":
-            NeuralNet.plot_mcc(self.f5, "mcc-plot.png")
-
-        self.f5.close()
         logger.info(
             f' --> Training done in {self.convertSeconds2Days(time.time()-t0)}')
 
@@ -381,11 +353,11 @@ class NeuralNet():
         seconds = time
         return '%02d-%02d:%02d:%02d' % (day, hour, minutes, seconds)
 
-    def test(self, hdf5='test_data.hdf5'):
+    def test(self, tensorboard_directory=None):
         """Test a predefined model on a new dataset.
 
         Args:
-            hdf5 (str, optional): hdf5 file to store the test results
+            tensorboard_directory (path, optional): where to store the test results
 
         Examples:
             >>> # adress of the database
@@ -397,9 +369,6 @@ class NeuralNet():
             >>> # test the model
             >>> model.test()
         """
-        # output
-        fname = os.path.join(self.outdir, hdf5)
-        self.f5 = h5py.File(fname, 'w')
 
         # load pretrained model to get task and criterion
         self.load_nn_params()
@@ -419,8 +388,10 @@ class NeuralNet():
 
         self.plot_hit_rate(os.path.join(self.outdir + 'hitrate.png'))
 
-        self._export_epoch_hdf5(0, self.data)
-        self.f5.close()
+        with SummaryWriter(log_dir=tensorboard_directory,
+                           comment="test") as tensorboard_writer:
+
+            self._export_epoch_tensorboard(0, "testing", self.task, self.data, tensorboard_writer)
 
     def save_model(self, filename='model.pth.tar'):
         """save the model to disk.
@@ -540,8 +511,9 @@ class NeuralNet():
 
     def _train(self, index_train, index_valid, index_test,
                nepoch=50, train_batch_size=5,
-               export_intermediate=False, num_workers=1,
-               save_epoch='intermediate', save_model='best'):
+               tensorboard_directory=None,
+               num_workers=1,
+               save_model='best'):
         """Train the model.
 
         Args:
@@ -550,10 +522,9 @@ class NeuralNet():
             index_test  (list(int)): Indices of the testing set
             nepoch (int, optional): numbr of epoch
             train_batch_size (int, optional): size of the batch
-            export_intermediate (bool, optional):export itnermediate data
+            tensorboard_directory (directory path, optional): where to store the results
             num_workers (int, optional): number of workers pytorch
                 uses to create the batch size
-            save_epoch (str,optional): 'intermediate' or 'all'
             save_model (str, optional): 'all' or 'best'
 
         Returns:
@@ -583,16 +554,6 @@ class NeuralNet():
             self.losses['valid'] = []
         if _test_:
             self.losses['test'] = []
-
-        # containers for the class metrics
-        if self.save_classmetrics:
-            self.classmetrics = {}
-            for i in self.metricnames:
-                self.classmetrics[i] = {'train': []}
-                if _valid_:
-                    self.classmetrics[i]['valid'] = []
-                if _test_:
-                    self.classmetrics[i]['test'] = []
 
         #  create the loaders
         train_loader = data_utils.DataLoader(
@@ -627,101 +588,85 @@ class NeuralNet():
                      'valid': float('Inf'),
                      'test': float('Inf')}
 
-        # training loop
-        av_time = 0.0
-        self.data = {}
-        for epoch in range(nepoch):
+        with SummaryWriter(log_dir=tensorboard_directory,
+                           filename_suffix="_train",
+                           comment="train") as tensorboard_writer:
 
-            logger.info(f'\n: epoch {epoch:03d} / {nepoch:03d} {"-"*45}')
-            t0 = time.time()
+            # training loop
+            av_time = 0.0
+            self.data = {}
+            for epoch in range(nepoch):
 
-            # train the model
-            logger.info(f"\n\t=> train the model\n")
-            train_loss, self.data['train'] = self._epoch("train-epoch-%d" % epoch,
-                                                         train_loader, train_model=True)
-            self.losses['train'].append(train_loss)
-            if self.save_classmetrics:
-                for i in self.metricnames:
-                    self.classmetrics[i]['train'].append(self.data['train'][i])
+                logger.info(f'\n: epoch {epoch:03d} / {nepoch:03d} {"-"*45}')
+                t0 = time.time()
 
-            # validate the model
-            if _valid_:
-                logger.info(f"\n\t=> validate the model\n")
-                valid_loss, self.data['valid'] = self._epoch("valid-epoch-%d" % epoch,
-                                                             valid_loader, train_model=False)
-                self.losses['valid'].append(valid_loss)
-                if self.save_classmetrics:
-                    for i in self.metricnames:
-                        self.classmetrics[i]['valid'].append(
-                            self.data['valid'][i])
+                # train the model
+                logger.info(f"\n\t=> train the model\n")
+                train_loss, self.data['train'] = self._epoch("train-epoch-%d" % epoch,
+                                                             train_loader, train_model=True)
 
-            # test the model
-            if _test_:
-                logger.info(f"\n\t=> test the model\n")
-                test_loss, self.data['test'] = self._epoch("test-epoch-%d" % epoch,
-                                                           test_loader, train_model=False)
-                self.losses['test'].append(test_loss)
-                if self.save_classmetrics:
-                    for i in self.metricnames:
-                        self.classmetrics[i]['test'].append(
-                            self.data['test'][i])
+                self._export_epoch_tensorboard(epoch, "training", self.task, self.data['train'], tensorboard_writer)
 
-            # talk a bit about losse
-            logger.info(f'\n  train loss      : {train_loss:1.3e}')
-            if _valid_:
-                logger.info(f'  valid loss      : {valid_loss:1.3e}')
-            if _test_:
-                logger.info(f'  test loss       : {test_loss:1.3e}')
+                self.losses['train'].append(train_loss)
 
-            # timer
-            elapsed = time.time() - t0
-            logger.info(
-                f'  epoch done in   : {self.convertSeconds2Days(elapsed)}')
+                # validate the model
+                if _valid_:
+                    logger.info(f"\n\t=> validate the model\n")
+                    valid_loss, self.data['valid'] = self._epoch("valid-epoch-%d" % epoch,
+                                                                 valid_loader, train_model=False)
 
-            # remaining time
-            av_time += elapsed
-            nremain = nepoch - (epoch + 1)
-            remaining_time = av_time / (epoch + 1) * nremain
-            logger.info(f"  remaining time  : "
-                f"{time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
+                    self._export_epoch_tensorboard(epoch, "validation", self.task, self.data['valid'], tensorboard_writer)
 
-            # save the best model
-            for mode in ['train', 'valid', 'test']:
-                if mode not in self.losses:
-                    continue
-                if self.losses[mode][-1] < min_error[mode]:
-                    self.save_model(
-                        filename="best_{}_model.pth.tar".format(mode))
-                    min_error[mode] = self.losses[mode][-1]
+                    self.losses['valid'].append(valid_loss)
 
-            # save all the model if required
-            if save_model == 'all':
-                self.save_model(filename="model_epoch_%04d.pth.tar" % epoch)
+                # test the model
+                if _test_:
+                    logger.info(f"\n\t=> test the model\n")
+                    test_loss, self.data['test'] = self._epoch("test-epoch-%d" % epoch,
+                                                               test_loader, train_model=False)
 
-            # plot and save epoch
-            if (export_intermediate and epoch % nprint == nprint - 1) or \
-                epoch == 0 or epoch == nepoch - 1:
+                    self._export_epoch_tensorboard(epoch, "testing", self.task, self.data['test'], tensorboard_writer)
+
+                    self.losses['test'].append(test_loss)
+
+                # talk a bit about losse
+                logger.info(f'\n  train loss      : {train_loss:1.3e}')
+                if _valid_:
+                    logger.info(f'  valid loss      : {valid_loss:1.3e}')
+                if _test_:
+                    logger.info(f'  test loss       : {test_loss:1.3e}')
+
+                # timer
+                elapsed = time.time() - t0
+                logger.info(
+                    f'  epoch done in   : {self.convertSeconds2Days(elapsed)}')
+
+                # remaining time
+                av_time += elapsed
+                nremain = nepoch - (epoch + 1)
+                remaining_time = av_time / (epoch + 1) * nremain
+                logger.info(f"  remaining time  : "
+                    f"{time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
+
+                # save the best model
+                for mode in ['train', 'valid', 'test']:
+                    if mode not in self.losses:
+                        continue
+                    if self.losses[mode][-1] < min_error[mode]:
+                        self.save_model(
+                            filename="best_{}_model.pth.tar".format(mode))
+                        min_error[mode] = self.losses[mode][-1]
+
+                # save all the model if required
+                if save_model == 'all':
+                    self.save_model(filename="model_epoch_%04d.pth.tar" % epoch)
 
                 if self.plot:
                     figname = os.path.join(self.outdir,
                         f"prediction_{epoch:04d}.png")
                     self._plot_scatter(figname)
 
-                self._export_epoch_hdf5(epoch, self.data)
-
-            elif save_epoch == 'all':
-                # self._compute_hitrate()
-                self._export_epoch_hdf5(epoch, self.data)
-
-            sys.stdout.flush()
-
-        # plot the losses
-        self._export_losses(os.path.join(self.outdir, 'losses.png'))
-
-        # plot classification metrics
-        if self.save_classmetrics:
-            for i in self.metricnames:
-                self._export_metrics(i)
+                sys.stdout.flush()
 
         return torch.cat([param.data.view(-1)
                           for param in self.net.parameters()], 0)
@@ -758,10 +703,6 @@ class NeuralNet():
         # variables of the epoch
         running_loss = 0
         data = {'outputs': [], 'targets': [], 'mol': [], "variant": []}
-
-        if self.save_classmetrics:
-            for i in self.metricnames:
-                data[i] = None
 
         n = 0
         debug_time = False
@@ -862,11 +803,6 @@ class NeuralNet():
         data['mol'] = np.array(data['mol'], dtype=object)
         data['variant'] = np.array(data['variant'], dtype=object)
 
-        # get classification metrics
-        if self.save_classmetrics:
-            for i in self.metricnames:
-                data[i] = self._get_classmetrics(data, i)
-
         # normalize the loss
         if n != 0:
             running_loss /= n
@@ -874,6 +810,7 @@ class NeuralNet():
             warnings.warn(f'Empty input in data_loader {data_loader}.')
 
         epoch_logger.info("running loss: {}".format(running_loss))
+        data['loss'] = [running_loss]
 
         return running_loss, data
 
@@ -906,61 +843,6 @@ class NeuralNet():
             targets = targets.long()
 
         return inputs, targets
-
-    def _export_losses(self, figname):
-        """Plot the losses vs the epoch.
-
-        Args:
-            figname (str): name of the file where to export the figure
-        """
-
-        logger.info('\n --> Loss Plot')
-
-        color_plot = ['red', 'blue', 'green']
-        labels = ['Train', 'Valid', 'Test']
-
-        fig, ax = plt.subplots()
-        for ik, name in enumerate(self.losses):
-            plt.plot(np.array(self.losses[name]),
-                     c = color_plot[ik],
-                     label = labels[ik])
-
-        legend = ax.legend(loc='upper left')
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Losses')
-
-        fig.savefig(figname)
-        plt.close()
-
-        grp = self.f5.create_group('/losses/')
-        grp.attrs['type'] = 'losses'
-        for k, v in self.losses.items():
-            grp.create_dataset(k, data=v)
-
-    def _export_metrics(self, metricname):
-
-        logger.info(f'\n --> {metricname.upper()} Plot')
-
-        color_plot = ['red', 'blue', 'green']
-        labels = ['Train', 'Valid', 'Test']
-
-        data = self.classmetrics[metricname]
-        fig, ax = plt.subplots()
-        for ik, name in enumerate(data):
-            plt.plot(np.array(data[name]), c=color_plot[ik], label=labels[ik])
-
-        legend = ax.legend(loc='upper left')
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel(metricname.upper())
-
-        figname = os.path.join(self.outdir, metricname + '.png')
-        fig.savefig(figname)
-        plt.close()
-
-        grp = self.f5.create_group(metricname)
-        grp.attrs['type'] = metricname
-        for k, v in data.items():
-            grp.create_dataset(k, data=v)
 
     def _plot_scatter_reg(self, figname):
         """Plot a scatter plots of predictions VS targets.
@@ -1173,48 +1055,36 @@ class NeuralNet():
         pred = probility[:, 0] <= probility[:, 1]
         return pred.astype(int)
 
-    def _export_epoch_hdf5(self, epoch, data):
-        """Export the epoch data to the hdf5 file.
+    @staticmethod
+    def _export_epoch_tensorboard(epoch_number, pass_, task, epoch_data, tensorboard_writer):
 
-        Export the data of a given epoch in train/valid/test group.
-        In each group are stored the predcited values (outputs),
-        ground truth (targets) and molecule name (mol).
+        loss = epoch_data['loss'][0]
+        tensorboard_writer.add_scalar("loss", loss, epoch_number)
 
-        Args:
-            epoch (int): index of the epoch
-            data (dict): data of the epoch
-        """
+        fp, fn, tp, tn = 0, 0, 0, 0
 
-        # create a group
-        grp_name = 'epoch_%04d' % epoch
-        grp = self.f5.create_group(grp_name)
+        for mol_index, mol_name in enumerate(epoch_data['mol']):
+            output = epoch_data['outputs'][mol_index]
+            tensorboard_writer.add_scalar(f"{mol_name}_output", output, epoch_number)
 
-        # create attribute for DeepXplroer
-        grp.attrs['type'] = 'epoch'
-        grp.attrs['task'] = self.task
+            target = epoch_data['targets'][mol_index]
+            tensorboard_writer.add_scalar(f"{mol_name}_target", target, epoch_number)
 
-        # loop over the pass_type: train/valid/test
-        for pass_type, pass_data in data.items():
+            if output > 0.0 and target > 0.0:
+                tp += 1
 
-            # we don't want to breack the process in case of issue
-            try:
+            elif output <=0.0 and target <= 0.0:
+                tn += 1
 
-                # create subgroup for the pass
-                sg = grp.create_group(pass_type)
+            elif output > 0.0 and target <= 0.0:
+                fp += 1
 
-                # loop over the data: target/output/molname
-                for data_name, data_value in pass_data.items():
+            elif output <= 0.0 and target > 0.0:
+                fn += 1
 
-                    # mol name and variant are a bit different
-                    # since these are strings
-                    if data_name in ['mol', 'variant']:
+        if task == "class":
+            mcc = (tn * tp - fp * fn) / np.sqrt((tn + fn) * (fp + tp) * (tn + fp) * (fn + tp))
+            tensorboard_writer.add_scalar("MCC", mcc, epoch_number)
 
-                        string_dt = h5py.special_dtype(vlen=str)
-                        sg.create_dataset(data_name, data=data_value, dtype=string_dt)
-
-                    # output/target values
-                    else:
-                        sg.create_dataset(data_name, data=data_value)
-
-            except TypeError:
-                logger.exception("Error in export epoch to hdf5")
+            accuracy = (tp + tn) / (tp + tn + fp + fn) 
+            tensorboard_writer.add_scalar("accuracy", accuracy, epoch_number)
