@@ -1056,17 +1056,17 @@ class NeuralNet():
         return pred.astype(int)
 
     @staticmethod
-    def _export_epoch_tensorboard(epoch_number, pass_, task, epoch_data, tensorboard_writer):
+    def _export_epoch_tensorboard(epoch_number, pass_name, task, epoch_data, tensorboard_writer):
 
         if 'loss' in epoch_data:
             loss = epoch_data['loss']
-            tensorboard_writer.add_scalar("loss", loss, epoch_number)
+            tensorboard_writer.add_scalar(f"{pass_name} loss", loss, epoch_number)
 
         if task == "class":
             tp, tn, fp, fn = get_tp_tn_fp_fn(epoch_data['outputs'], epoch_data['targets'])
 
             mcc = get_mcc(tp, tn, fp, fn)
-            tensorboard_writer.add_scalar("MCC", mcc, epoch_number)
+            tensorboard_writer.add_scalar(f"{pass_name} MCC", mcc, epoch_number)
 
             accuracy = (tp + tn) / (tp + tn + fp + fn) 
-            tensorboard_writer.add_scalar("accuracy", accuracy, epoch_number)
+            tensorboard_writer.add_scalar(f"{pass_name} accuracy", accuracy, epoch_number)
