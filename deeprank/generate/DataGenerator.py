@@ -9,6 +9,7 @@ import traceback
 
 import h5py
 import numpy as np
+from memory_profiler import profile
 
 import deeprank
 from deeprank.models.variant import PdbVariantSelection
@@ -125,6 +126,7 @@ class DataGenerator(object):
 #
 # ====================================================================================
 
+    @profile(stream=open("create_database-mprof.log", 'wt'))
     def create_database(
             self,
             verbose=False,
@@ -256,9 +258,9 @@ class DataGenerator(object):
                 hdf5data.store_variant(variant_group, variant)
 
                 # add the ref and the complex
-                self._add_pdb(variant_group, pdb_path, 'complex')
-                if ref is not None:
-                    self._add_pdb(variant_group, ref, 'native')
+                #self._add_pdb(variant_group, pdb_path, 'complex')
+                #if ref is not None:
+                #    self._add_pdb(variant_group, ref, 'native')
 
                 if verbose:
                     self.logger.info(
@@ -336,7 +338,7 @@ class DataGenerator(object):
 
                 try:
                     center = DataGenerator.get_grid_center(self.environment, variant)
-                    variant_group['grid_points'].create_dataset('center', data=center)
+                    variant_group['grid_points'].create_dataset('center', data=center, chunks=True)
                     if verbose:
                         self.logger.info(
                             f'{"":4s}Generated subgroup "grid_points"'
@@ -378,8 +380,8 @@ class DataGenerator(object):
                     hdf5data.store_variant(variant_group, variant)
 
                     # copy the ref into it
-                    if ref is not None:
-                        self._add_pdb(variant_group, ref, 'native')
+                    #if ref is not None:
+                    #    self._add_pdb(variant_group, ref, 'native')
 
                     # get the rotation axis and angle
                     if self.align is None:
@@ -654,8 +656,7 @@ class DataGenerator(object):
                     # copy
                     data = src_variant_group['features/' + k][()]
                     aug_variant_group.require_group('features')
-                    aug_variant_group.create_dataset(
-                        "features/" + k, data=data)
+                    aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf', chunks=True)
 
                     # rotate
                     self._rotate_feature(aug_variant_group, axis, angle, center, feat_name=[k])
@@ -711,7 +712,7 @@ class DataGenerator(object):
         for variant_name in list(f5.keys()):
             targrp = f5[variant_name].require_group('targets')
             for name, value in targdict.items():
-                targrp.create_dataset(name, data=np.array([value]))
+                targrp.create_dataset(name, data=np.array([value]), chunks=True)
         f5.close()
 
     def add_target(self, prog_bar=False):
@@ -782,8 +783,7 @@ class DataGenerator(object):
                 if k not in aug_variant_group['targets']:
                     data = src_variant_group['targets/' + k][()]
                     aug_variant_group.require_group('targets')
-                    aug_variant_group.create_dataset(
-                        "targets/" + k, data=data)
+                    aug_variant_group.create_dataset("targets/" + k, data=data, chunks=True)
 
         # close the file
         f5.close()
@@ -951,6 +951,7 @@ class DataGenerator(object):
 # ====================================================================================
 
 
+    @profile(stream=open("map_features-mprof.log", 'wt'))
     def map_features(self, grid_info={},
                      cuda=False, gpu_block=None,
                      cuda_kernel='kernel_map.c',
@@ -1527,7 +1528,7 @@ class DataGenerator(object):
         #  PDB default line length is 80
         #  http://www.wwpdb.org/documentation/file-format
         data = np.array(data).astype('|S78')
-        variant_group.create_dataset(name, data=data)
+        variant_group.create_dataset(name, data=data, compression='lzf', chunks=True)
 
     # @staticmethod
     def _get_aligned_sqldb(self, pdbfile, dict_align):
@@ -1607,7 +1608,7 @@ class DataGenerator(object):
         """Add augmented pdbs to the dataset.
 
         Args:
-            variant_group (str): name of the variant group
+            variant_group (h5py.Group): name of the variant group
             pdbfile (str): pdb file name
             name (str): name of the dataset
             axis (list(float)): axis of rotation
@@ -1635,7 +1636,7 @@ class DataGenerator(object):
         # get the pdb-format data
         data = sqldb.sql2pdb()
         data = np.array(data).astype('|S78')
-        variant_group.create_dataset(name, data=data)
+        variant_group.create_dataset(name, data=data, compression='lzf', chunks=True)
 
         # close the db
         sqldb._close()

@@ -3,6 +3,7 @@ import logging
 from pdb2sql import pdb2sql
 import freesasa
 import numpy
+from memory_profiler import profile
 
 from deeprank.config import logger
 from deeprank.features import FeatureClass
@@ -34,6 +35,7 @@ def get_atoms_of_iterest(environment, variant, distance_cutoff):
 FEATURE_NAME = "accessibility"
 
 
+@profile(stream=open("accessibility-mprof.log", 'wt'))
 def __compute_feature__(environment, featgrp, featgrp_raw, variant):
     "computes SASA-based features"
 

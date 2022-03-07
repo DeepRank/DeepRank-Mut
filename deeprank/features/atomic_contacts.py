@@ -7,6 +7,7 @@ import numpy
 import torch
 import torch.cuda
 from torch_scatter import scatter_sum
+from memory_profiler import profile
 
 from deeprank.config import logger
 from deeprank.models.pair import Pair
@@ -39,6 +40,7 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
     # We're currently not doing anything with the raw features.
 
 
+@profile(stream=open("atomic_features-mprof.log", "wt"))
 def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     """
         For all atoms surrounding the variant, calculate vanderwaals, coulomb and charge features.

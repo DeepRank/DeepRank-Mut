@@ -81,7 +81,7 @@ class FeatureClass(object):
                 old_data = featgrp[name + '_raw']
                 old_data[...] = ds
             else:
-                featgrp.create_dataset(name + '_raw', data=ds)
+                featgrp.create_dataset(name + '_raw', data=ds, chunks=True)
 
 
     def export_dataxyz_hdf5(self, featgrp):
@@ -102,7 +102,7 @@ class FeatureClass(object):
                 old = featgrp[name]
                 old[...] = ds
             else:
-                featgrp.create_dataset(name, data=ds)
+                featgrp.create_dataset(name, data=ds, chunks=True)
 
     @staticmethod
     def get_residue_center(sql, centers=['CB','CA','mean'], res=None):

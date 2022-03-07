@@ -95,7 +95,7 @@ def store_grid_center(variant_group, center):
     if 'center' in grid_group:
         del(grid_group['center'])
 
-    grid_group.create_dataset('center', data=center)
+    grid_group.create_dataset('center', data=center, compression='lzf', chunks=True)
 
 
 def load_grid_center(variant_group):
@@ -128,9 +128,9 @@ def store_grid_points(variant_group, x_coords, y_coords, z_coords):
         if coord in grid_group:
             del(grid_group[coord])
 
-    grid_group.create_dataset('x', data=x_coords)
-    grid_group.create_dataset('y', data=y_coords)
-    grid_group.create_dataset('z', data=z_coords)
+    grid_group.create_dataset('x', data=x_coords, compression='lzf', chunks=True)
+    grid_group.create_dataset('y', data=y_coords, compression='lzf', chunks=True)
+    grid_group.create_dataset('z', data=z_coords, compression='lzf', chunks=True)
 
 
 def load_grid_points(variant_group):
@@ -178,12 +178,12 @@ def store_grid_data(variant_group, feature_name, feature_dict, try_sparse=True):
         if try_sparse and spg.sparse:
             subfeature_group.attrs['sparse'] = True
             subfeature_group.attrs['type'] = 'sparse_matrix'
-            subfeature_group.create_dataset('index', data=spg.index, compression='gzip', compression_opts=9)
-            subfeature_group.create_dataset('value', data=spg.value, compression='gzip', compression_opts=9)
+            subfeature_group.create_dataset('index', data=spg.index, compression='lzf', chunks=True)
+            subfeature_group.create_dataset('value', data=spg.value, compression='lzf', chunks=True)
         else:
             subfeature_group.attrs['sparse'] = False
             subfeature_group.attrs['type'] = 'dense_matrix'
-            subfeature_group.create_dataset('value', data=subfeature_data, compression='gzip', compression_opts=9)
+            subfeature_group.create_dataset('value', data=subfeature_data, compression='lzf', chunks=True)
 
 
 def load_grid_data(variant_group, feature_name):
