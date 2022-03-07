@@ -48,7 +48,7 @@ arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of ea
 
 
 
-logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
+logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.DEBUG)
 _log = logging.getLogger(__name__)
 
 
@@ -282,9 +282,15 @@ if __name__ == "__main__":
        'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
     }
 
+    _log.debug("getting variant data from {}".format(args.variant_path))
+
     variants_data = get_variant_data(args.variant_path)
 
+    _log.debug("getting mappings from {}".format(args.map_path))
+
     variants = get_mappings(args.map_path, args.pdb_root, args.pssm_root, args.conservation_root, variants_data)
+
+    _log.debug("taking subset")
 
     variants = get_subset(variants)
 
