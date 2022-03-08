@@ -16,8 +16,6 @@ import numpy
 import pandas
 import csv
 from Bio import SeqIO
-from mpi4py import MPI
-import h5py
 from pdb2sql import pdb2sql
 import gzip
 from pdbecif.mmcif_io import CifFileReader
@@ -48,11 +46,9 @@ arg_parser.add_argument("-S", "--grid-size", help="the length in Angstroms of ea
 
 
 
-logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.DEBUG)
+logging.basicConfig(filename="preprocess_bioprodict-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
 _log = logging.getLogger(__name__)
 
-
-mpi_comm = MPI.COMM_WORLD
 
 
 def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info,
@@ -72,7 +68,7 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info,
     data_generator = DataGenerator(environment, variants,
                                    compute_features=feature_modules,
                                    compute_targets=target_modules,
-                                   hdf5=hdf5_path, mpi_comm=mpi_comm,
+                                   hdf5=hdf5_path,
                                    data_augmentation=data_augmentation)
     data_generator.create_database()
     data_generator.map_features(grid_info)
@@ -140,7 +136,7 @@ def get_variant_data(parq_path):
         Returns (list((str, VariantClass)): the variant names and classes
     """
 
-    variant_data = []
+    variant_data = {}
 
     _log.debug("reading {}".format(parq_path))
 
@@ -161,7 +157,7 @@ def get_variant_data(parq_path):
 
         _log.debug("add variant {} {}".format(variant_name, variant_class))
 
-        variant_data.append((variant_name, variant_class))
+        variant_data[variant_name] = variant_class
 
     return variant_data
 
@@ -174,7 +170,7 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
             pdb_root(str): path to the directory where pdbs are stored
             pssm_root(str or None): path to the directory where pssms are stored
             conservation_root(str or None): path to the directory where conservation parquet tables are stored
-            variant_data (list((str, VariantClass)): the variant names and classes
+            variant_data (dict(str, VariantClass): the variant names and classes
 
         Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
     """
@@ -183,56 +179,60 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
 
     _log.debug("reading {} mappings table".format(hdf5_path))
 
-    mappings_table = pandas.read_hdf(hdf5_path, "mappings")
+    max_mappings_per_variant = 3
+    variant_mappings_counts = {variant_name: 0 for variant_name in variant_data}
 
     variants = set([])
 
-    for variant_name, variant_class in variant_data:
-        variant_section = mappings_table.loc[mappings_table.variant == variant_name].dropna()
+    for mappings_table in pandas.read_hdf(hdf5_path, "mappings", chunksize=10000):  # iter through the mappings file once
 
-        enst_ac = variant_name[:15]
-        swap = variant_name[15:]
-        wt_amino_acid_code = swap[:3]
-        residue_number = int(swap[3: -3])
-        var_amino_acid_code = swap[-3:]
+        for _, row in mappings_table.iterrows():  # each row maps a variant to one pdb entry
 
-        variants_section= variant_section.iloc[:3] 
+            variant_name = row["variant"]
+            if variant_name in variant_data and variant_mappings_counts[variant_name] < max_mappings_per_variant:
 
-        for _, row in variants_section.iterrows():  # each row maps the variant to one pdb entry
+                variant_class = variant_data[variant_name]
 
-            pdb_ac = row["pdb_structure"]
+                enst_ac = variant_name[:15]
+                swap = variant_name[15:]
+                wt_amino_acid_code = swap[:3]
+                residue_number = int(swap[3: -3])
+                var_amino_acid_code = swap[-3:]
 
-            pdb_number_string = row["pdbnumber"]
-            if pdb_number_string[-1].isalpha():
+                pdb_ac = row["pdb_structure"]
 
-                pdb_number = int(pdb_number_string[:-1])
-                insertion_code = pdb_number_string[-1]
-            else:
-                pdb_number = int(pdb_number_string)
-                insertion_code = None
+                pdb_number_string = row["pdbnumber"]
+                if pdb_number_string[-1].isalpha():
 
-            chain_id = pdb_ac[4]
-            pdb_ac = pdb_ac[:4]
+                    pdb_number = int(pdb_number_string[:-1])
+                    insertion_code = pdb_number_string[-1]
+                else:
+                    pdb_number = int(pdb_number_string)
+                    insertion_code = None
 
-            if not pdb_meets_criteria(pdb_root, pdb_ac):
-                continue
+                chain_id = pdb_ac[4]
+                pdb_ac = pdb_ac[:4]
 
-            if pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
-                continue
+                if not pdb_meets_criteria(pdb_root, pdb_ac):
+                    continue
 
-            protein_ac = row["protein_accession"]
-            if conservation_root is not None and not has_conservation(conservation_root, protein_ac):
-                continue
+                if pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
+                    continue
 
-            variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,
-                                          amino_acids_by_code[wt_amino_acid_code],
-                                          amino_acids_by_code[var_amino_acid_code],
-                                          protein_ac, residue_number,
-                                          variant_class, insertion_code)
+                protein_ac = row["protein_accession"]
+                if conservation_root is not None and not has_conservation(conservation_root, protein_ac):
+                    continue
 
-            _log.debug("adding variant {}".format(variant))
+                variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,
+                                              amino_acids_by_code[wt_amino_acid_code],
+                                              amino_acids_by_code[var_amino_acid_code],
+                                              protein_ac, residue_number,
+                                              variant_class, insertion_code)
 
-            variants.add(variant)
+                _log.debug("adding variant {}".format(variant))
+
+                variants.add(variant)
+                variant_mappings_counts[variant_name] += 1
 
     return variants
 
@@ -272,6 +272,7 @@ def get_subset(variants):
 
 
 if __name__ == "__main__":
+
     args = arg_parser.parse_args()
 
     resolution = args.grid_size / args.grid_points
