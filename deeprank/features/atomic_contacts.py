@@ -35,7 +35,7 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
 
     data = [list(atoms[index].position) + [values[index]] for index in range(len(atoms))]
 
-    if data.shape[0] > 100:
+    if len(data) > 100:
         feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf", chunks=(100,4))
     else:
         feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf")
