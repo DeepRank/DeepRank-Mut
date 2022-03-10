@@ -1013,7 +1013,7 @@ class DataGenerator(object):
 
         # check all the input PDB files
         with h5py.File(self.hdf5, 'r') as f5:
-            variant_names = f5.keys()
+            variant_names = list(f5.keys())
 
         if len(variant_names) == 0:
             raise ValueError(f'No variants found in {self.hdf5}.')
