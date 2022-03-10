@@ -194,15 +194,14 @@ class DataGenerator(object):
             h5path, h5name = os.path.split(self.hdf5)
             self.hdf5 = os.path.join(h5path, f"{rank:03d}_{h5name}")
 
-        # open the file
-        self.f5 = h5py.File(self.hdf5, 'w')
-
         # set metadata to hdf5 file
-        self.f5.attrs['DeepRank_version'] = deeprank.__version__
-        if self.compute_features is not None:
-            self.f5.attrs['features'] = self.compute_features
-        if self.compute_targets is not None:
-            self.f5.attrs['targets'] = self.compute_targets
+        with h5py.File(self.hdf5, 'w') as f5:
+
+            f5.attrs['DeepRank_version'] = deeprank.__version__
+            if self.compute_features is not None:
+                f5.attrs['features'] = self.compute_features
+            if self.compute_targets is not None:
+                f5.attrs['targets'] = self.compute_targets
 
         ##################################################
         # Start generating HDF5 database
@@ -226,7 +225,7 @@ class DataGenerator(object):
             # names of the variant
             variant_aug_name_list = []
 
-            try:
+            with h5py.File(self.hdf5, 'a') as f5:
 
                 ################################################
                 #   get the pdbs of the conformation and its ref
@@ -253,7 +252,7 @@ class DataGenerator(object):
                     ref = None
 
                 # create a subgroup for the variant
-                variant_group = self.f5.require_group(variant_name)
+                variant_group = f5.require_group(variant_name)
                 variant_group.attrs['type'] = 'variant'
                 hdf5data.store_variant(variant_group, variant)
 
@@ -375,7 +374,7 @@ class DataGenerator(object):
                 for variant_aug_name in variant_aug_name_list:
 
                     # create a subgroup for the molecule
-                    variant_group = self.f5.require_group(variant_aug_name)
+                    variant_group = f5.require_group(variant_aug_name)
                     variant_group.attrs['type'] = 'variant'
                     hdf5data.store_variant(variant_group, variant)
 
@@ -395,9 +394,9 @@ class DataGenerator(object):
                                                         'complex', rotation_axis, rotation_angle)
 
                     # copy the targets/features
-                    if 'targets' in self.f5[variant_name]:
-                        self.f5.copy(variant_name + '/targets/', variant_group)
-                    self.f5.copy(variant_name + '/features/', variant_group)
+                    if 'targets' in f5[variant_name]:
+                        f5.copy(variant_name + '/targets/', variant_group)
+                    f5.copy(variant_name + '/features/', variant_group)
 
                     # rotate the feature
                     self._rotate_feature(variant_group, rotation_axis, rotation_angle, rotation_center)
@@ -426,10 +425,6 @@ class DataGenerator(object):
                     self.logger.info(
                         f'\nSuccessfully generated top HDF5 group "{variant_name}".\n')
 
-            # all other errors
-            except BaseException:
-                raise
-
         ##################################################
         # Post processing
         ##################################################
@@ -437,8 +432,9 @@ class DataGenerator(object):
         errored_variants = list(set(self.feature_error + self.grid_error))
         if len(errored_variants) > 0:
             if remove_error:
-                for variant_name in errored_variants:
-                    del self.f5[variant_name]
+                with h5py.File(self.hdf5, 'a') as f5:
+                    for variant_name in errored_variants:
+                        del f5[variant_name]
                 if self.feature_error:
                     self.logger.info(
                         f'Molecules with errored features are removed:'
@@ -656,7 +652,11 @@ class DataGenerator(object):
                     # copy
                     data = src_variant_group['features/' + k][()]
                     aug_variant_group.require_group('features')
-                    aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf', chunks=True)
+
+                    if data.shape[0] > 100:
+                        aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf', chunks=(100, 4))
+                    else:
+                        aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf')
 
                     # rotate
                     self._rotate_feature(aug_variant_group, axis, angle, center, feat_name=[k])
@@ -1012,14 +1012,11 @@ class DataGenerator(object):
                         'CUDA mapping disabled when using MPI')
                     cuda = False
 
-        # name of the hdf5 file
-        f5 = h5py.File(self.hdf5, 'a')
-
         # check all the input PDB files
-        variant_names = f5.keys()
+        with h5py.File(self.hdf5, 'r') as f5:
+            variant_names = f5.keys()
 
         if len(variant_names) == 0:
-            f5.close()
             raise ValueError(f'No variants found in {self.hdf5}.')
 
         ################################################################
@@ -1078,66 +1075,70 @@ class DataGenerator(object):
 
         # loop over the data files
         for variant_name in variant_tqdm:
-            variant_tqdm.set_postfix(variant=variant_name)
 
-            variant = hdf5data.load_variant(f5[variant_name])
-            grid_center = self.get_grid_center(self.environment, variant)
+            with h5py.File(self.hdf5, 'a') as f5:
 
-            # Determine which feature to map
-            # if feature not given, then determine it for each variant
-            if 'feature' not in grid_info_ref:
-                # if we havent mapped anything yet or if we reset
-                if 'mapped_features' not in list(f5[variant_name].keys()) or reset:
-                    grid_info['feature'] = list(
-                        f5[variant_name + '/features'].keys())
+                variant_tqdm.set_postfix(variant=variant_name)
 
-                # if we have already mapped stuff
-                elif 'mapped_features' in list(f5[variant_name].keys()):
+                variant = hdf5data.load_variant(f5[variant_name])
+                grid_center = self.get_grid_center(self.environment, variant)
 
-                    # feature name
-                    all_feat = list(f5[variant_name + '/features'].keys())
+                # Determine which feature to map
+                # if feature not given, then determine it for each variant
+                if 'feature' not in grid_info_ref:
+                    # if we havent mapped anything yet or if we reset
+                    if 'mapped_features' not in list(f5[variant_name].keys()) or reset:
+                        grid_info['feature'] = list(
+                            f5[variant_name + '/features'].keys())
 
-                    # feature already mapped
-                    mapped_feat = list(
-                        f5[variant_name + '/mapped_features/Feature_ind'].keys())
+                    # if we have already mapped stuff
+                    elif 'mapped_features' in list(f5[variant_name].keys()):
 
-                    # we select only the feture that were not mapped yet
-                    grid_info['feature'] = []
-                    for feat_name in all_feat:
-                        if not any(map(lambda x: x.startswith(feat_name + '_'),
-                                       mapped_feat)):
-                            grid_info['feature'].append(feat_name)
+                        # feature name
+                        all_feat = list(f5[variant_name + '/features'].keys())
 
-            try:
-                # compute the data we want on the grid
-                gt.GridTools(
-                    environment=self.environment,
-                    variant_group=f5[variant_name],
-                    variant=variant,
-                    grid_center=grid_center,
-                    number_of_points=grid_info['number_of_points'],
-                    resolution=grid_info['resolution'],
-                    atomic_densities=grid_info['atomic_densities'],
-                    atomic_densities_mode=grid_info['atomic_densities_mode'],
-                    feature=grid_info['feature'],
-                    feature_mode=grid_info['feature_mode'],
-                    cuda=cuda,
-                    gpu_block=gpu_block,
-                    cuda_func=cuda_func,
-                    cuda_atomic=cuda_atomic,
-                    time=time,
-                    prog_bar=grid_prog_bar,
-                    try_sparse=try_sparse)
+                        # feature already mapped
+                        mapped_feat = list(
+                            f5[variant_name + '/mapped_features/Feature_ind'].keys())
 
-            except:
-                self.map_error.append(variant_name)
-                self.logger.exception("Error during the mapping of {}: {}".format(variant, traceback.format_exc()))
+                        # we select only the feture that were not mapped yet
+                        grid_info['feature'] = []
+                        for feat_name in all_feat:
+                            if not any(map(lambda x: x.startswith(feat_name + '_'),
+                                           mapped_feat)):
+                                grid_info['feature'].append(feat_name)
+
+                try:
+                    # compute the data we want on the grid
+                    gt.GridTools(
+                        environment=self.environment,
+                        variant_group=f5[variant_name],
+                        variant=variant,
+                        grid_center=grid_center,
+                        number_of_points=grid_info['number_of_points'],
+                        resolution=grid_info['resolution'],
+                        atomic_densities=grid_info['atomic_densities'],
+                        atomic_densities_mode=grid_info['atomic_densities_mode'],
+                        feature=grid_info['feature'],
+                        feature_mode=grid_info['feature_mode'],
+                        cuda=cuda,
+                        gpu_block=gpu_block,
+                        cuda_func=cuda_func,
+                        cuda_atomic=cuda_atomic,
+                        time=time,
+                        prog_bar=grid_prog_bar,
+                        try_sparse=try_sparse)
+
+                except:
+                    self.map_error.append(variant_name)
+                    self.logger.exception("Error during the mapping of {}: {}".format(variant, traceback.format_exc()))
 
         # remove the variants with issues
         if self.map_error:
             if remove_error:
-                for variant_name in self.map_error:
-                    del f5[variant_name]
+                with h5py.File(self.hdf5, 'a') as f5:
+                    for variant_name in self.map_error:
+                        del f5[variant_name]
                 self.logger.warning(
                     f"Variants with errored feature mapping are removed:\n"
                     f"{self.map_error}")
@@ -1145,9 +1146,6 @@ class DataGenerator(object):
                 self.logger.warning(
                     f"The following variants have errored feature mapping:\n"
                     f"{self.map_error}")
-
-        # close he hdf5 file
-        f5.close()
 
 # ====================================================================================
 #
@@ -1636,6 +1634,7 @@ class DataGenerator(object):
         # get the pdb-format data
         data = sqldb.sql2pdb()
         data = np.array(data).astype('|S78')
+
         variant_group.create_dataset(name, data=data, compression='lzf', chunks=True)
 
         # close the db
