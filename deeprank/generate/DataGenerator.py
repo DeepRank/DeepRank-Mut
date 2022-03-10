@@ -454,7 +454,6 @@ class DataGenerator(object):
                         f'\n{self.grid_error}')
 
         # close the file
-        self.f5.close()
         self.logger.info(
             f'\n# Successfully created database: {self.hdf5}\n')
 
