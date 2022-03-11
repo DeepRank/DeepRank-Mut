@@ -36,10 +36,7 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
 
     data = [list(atoms[index].position) + [values[index]] for index in range(len(atoms))]
 
-    if len(data) > 100:
-        feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf", chunks=(100,4))
-    else:
-        feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf")
+    feature_group_xyz.create_dataset(feature_name, data=data, compression="lzf", chunks=True)
 
     # We're currently not doing anything with the raw features.
 

@@ -652,10 +652,7 @@ class DataGenerator(object):
                     data = src_variant_group['features/' + k][()]
                     aug_variant_group.require_group('features')
 
-                    if data.shape[0] > 100:
-                        aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf', chunks=(100, 4))
-                    else:
-                        aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf')
+                    aug_variant_group.create_dataset("features/" + k, data=data, compression='lzf', chunks=True)
 
                     # rotate
                     self._rotate_feature(aug_variant_group, axis, angle, center, feat_name=[k])

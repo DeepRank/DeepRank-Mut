@@ -102,10 +102,7 @@ class FeatureClass(object):
                 old = featgrp[name]
                 old[...] = ds
             else:
-                if ds.shape[0] > 100:
-                    featgrp.create_dataset(name, data=ds, chunks=(100,4))
-                else:
-                    featgrp.create_dataset(name, data=ds)
+                featgrp.create_dataset(name, data=ds, chunks=True)
 
     @staticmethod
     def get_residue_center(sql, centers=['CB','CA','mean'], res=None):
