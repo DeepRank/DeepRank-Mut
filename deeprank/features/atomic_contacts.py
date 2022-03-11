@@ -3,6 +3,7 @@ from pdb2sql import pdb2sql
 import re
 import os
 
+from scipy.spatial import distance_matrix
 import numpy
 import torch
 import torch.cuda
@@ -11,7 +12,7 @@ from memory_profiler import profile
 
 from deeprank.config import logger
 from deeprank.models.pair import Pair
-from deeprank.operate.pdb import get_atoms, get_pdb_path
+from deeprank.operate.pdb import get_atoms, get_pdb_path, get_residue_contact_atom_pairs
 from deeprank.features.FeatureClass import FeatureClass
 from deeprank.domain.forcefield import atomic_forcefield
 
@@ -65,33 +66,37 @@ def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     # get the atoms from the pdb
     pdb = pdb2sql(pdb_path)
     try:
-        atoms = get_atoms(pdb)
+        atoms = set([])
+        for atom1, atom2 in get_residue_contact_atom_pairs(pdb, variant.chain_id, variant.residue_number, variant.insertion_code, 10.0):
+            for atom in (atom1.residue.atoms + atom2.residue.atoms):
+                atoms.add(atom)
+        atoms = list(atoms)
     finally:
         pdb._close()
 
     count_atoms = len(atoms)
-    atom_positions = torch.from_numpy(numpy.array([atom.position for atom in atoms])).to(environment.device)
-    atoms_in_variant = torch.tensor([atom.residue.number == variant.residue_number and
-                                     atom.chain_id == variant.chain_id and
-                                     atom.residue.insertion_code == variant.insertion_code for atom in atoms]).to(environment.device)
+    atom_positions = numpy.array([atom.position for atom in atoms])
+    atoms_in_variant = numpy.array([atom.residue.number == variant.residue_number and
+                                    atom.chain_id == variant.chain_id and
+                                    atom.residue.insertion_code == variant.insertion_code for atom in atoms])
 
     # calculate euclidean distances
-    atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
+    atom_distance_matrix = distance_matrix(atom_positions, atom_positions)
 
     # select pairs that are close enough
     neighbour_matrix = atom_distance_matrix < max_interatomic_distance
 
     # select pairs of which only one of the atoms is from the variant residue
-    atoms_in_variant_matrix = atoms_in_variant.expand(count_atoms, count_atoms)
-    atoms_in_variant_matrix = torch.logical_xor(atoms_in_variant_matrix,
-                                                atoms_in_variant_matrix.transpose(0, 1))
-    variant_neighbour_matrix = torch.logical_and(atoms_in_variant_matrix, neighbour_matrix)
+    atoms_in_variant_matrix = numpy.resize(atoms_in_variant, (count_atoms, count_atoms))
+    atoms_in_variant_matrix = numpy.logical_xor(atoms_in_variant_matrix,
+                                                numpy.transpose(atoms_in_variant_matrix))
+    variant_neighbour_matrix = numpy.logical_and(atoms_in_variant_matrix, neighbour_matrix)
 
     # extend contacts from just atoms to entire residues.
     # (slow)
     other_atoms_involved = set([])
     atom_index_lookup = {atom: index for index, atom in enumerate(atoms)}
-    for index0, index1 in torch.nonzero(variant_neighbour_matrix):
+    for index0, index1 in numpy.transpose(numpy.nonzero(variant_neighbour_matrix)):
         for other_atom in atoms[index0].residue.atoms:
             other_index = atom_index_lookup[other_atom]
             if index0 != other_index:
@@ -109,8 +114,8 @@ def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     charges0_list = []
     charges1_list = []
     distances_list = []
-    atom_pair_indices = torch.nonzero(variant_neighbour_matrix)
-    charges_per_atom = torch.zeros(count_atoms)
+    atom_pair_indices = numpy.transpose(numpy.nonzero(variant_neighbour_matrix))
+    charges_per_atom = torch.zeros(count_atoms).to(environment.device)
     for index0, index1 in atom_pair_indices:
         atom0 = atoms[index0]
         atom1 = atoms[index1]
@@ -150,6 +155,7 @@ def __compute_feature__(environment, feature_group, raw_feature_group, variant):
     distances = torch.tensor(distances_list).to(environment.device)
     squared_distances = torch.square(distances)
     count_pairs = len(atom_pair_indices)
+    atom_pair_indices = torch.tensor(atom_pair_indices)
 
     # calculate coulomb potentials
     coulomb_constant_factor = COULOMB_CONSTANT / EPSILON0

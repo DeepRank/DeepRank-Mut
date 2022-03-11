@@ -13,7 +13,7 @@ from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.forcefield import atomic_forcefield
 from deeprank.operate.pdb import get_atoms, get_pdb_path
 from deeprank.models.environment import Environment
-from deeprank.domain.amino_acid import serine, cysteine, aspartate, glutamate
+from deeprank.domain.amino_acid import *
 
 
 def _find_atom(atoms, chain_id, residue_number, atom_name):
@@ -168,8 +168,8 @@ def test_computed_features():
 
     environment = Environment(pdb_root="test/data/pdb", device="cpu")
 
-    variants = [PdbVariantSelection("101M", "C", 25, "G", "A"),
-                PdbVariantSelection("1MEY", "C", 10, "C", "A")]
+    variants = [PdbVariantSelection("101M", "A", 25, None, glycine, alanine),
+                PdbVariantSelection("1MEY", "C", 10, None, cysteine, alanine)]
 
     for variant in variants:
 
@@ -274,3 +274,11 @@ ATOM      2  OE2 GLU A   2       8.167   0.184   0.038  1.00 10.80           C
     ok_(c_short > 0.0)
     ok_(c_long > 0.0)
     ok_(c_short > c_long)
+
+
+def test_large_structure():
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variant = PdbVariantSelection("2Y69", "A", 145, isoleucine, leucine)
+
+    _compute_features(environment, variant)

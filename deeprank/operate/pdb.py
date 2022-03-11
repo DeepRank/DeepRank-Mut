@@ -1,8 +1,9 @@
-import numpy
-import torch
-import torch.cuda
 import logging
 import os
+
+import numpy
+from scipy.spatial import distance_matrix
+from memory_profiler import profile
 
 from deeprank.models.pair import Pair
 from deeprank.models.atom import Atom
@@ -40,6 +41,7 @@ def is_xray(pdb_file):
     return False
 
 
+@profile(stream=open("get_atoms-mprof.log", 'at'))
 def get_atoms(pdb2sql):
     """ Builds a list of atom objects, according to the contents of the pdb file.
 
@@ -98,6 +100,7 @@ def get_atoms(pdb2sql):
     return list(atoms.values())
 
 
+@profile(stream=open("get_residue_contact_atom_pairs-mprof.log", 'at'))
 def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_code, max_interatomic_distance):
     """ Find interatomic contacts around a residue.
 
@@ -111,34 +114,31 @@ def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_
         Returns ([Pair(Atom, Atom)]): pairs of atoms that contact each other
     """
 
-    if torch.cuda.is_available():
-        device = "cuda"
-    else:
-        device = "cpu"
-
     # get all the atoms in the pdb file:
     atoms = get_atoms(pdb2sql)
-    count_atoms = len(atoms)
-    atom_positions = torch.tensor([atom.position for atom in atoms]).to(device)
-    atoms_in_residue = torch.tensor([atom.residue.number == residue_number and
-                                     atom.chain_id == chain_id and
-                                     atom.residue.insertion_code == insertion_code for atom in atoms]).to(device)
+    atom_positions = numpy.array([atom.position for atom in atoms])
+    atoms_in_residue = numpy.array([atom for atom in atoms
+                                    if atom.residue.number == residue_number and
+                                    atom.chain_id == chain_id and
+                                    atom.residue.insertion_code == insertion_code])
+    if len(atoms_in_residue) == 0:
+        raise ValueError("no atoms found for residue {} {}{}".format(chain_id, residue_number, insertion_code))
+
+    atoms_in_residue_positions = numpy.array([atom.position for atom in atoms_in_residue])
 
     # calculate euclidean distances
-    atom_distance_matrix = torch.cdist(atom_positions, atom_positions, p=2)
+    atom_distance_matrix = distance_matrix(atom_positions, atoms_in_residue_positions)
 
     # select pairs that are close enough
     neighbour_matrix = atom_distance_matrix < max_interatomic_distance
 
-    # select pairs of which only one of the atoms is from the residue
-    atoms_in_residue_matrix = atoms_in_residue.expand(count_atoms, count_atoms)
-    atoms_in_residue_matrix = torch.logical_xor(atoms_in_residue_matrix,
-                                                atoms_in_residue_matrix.transpose(0, 1))
-    residue_neighbour_matrix = torch.logical_and(atoms_in_residue_matrix, neighbour_matrix)
-
     # Create a set of pair objects
     neighbour_pairs = set([])
-    for index0, index1 in torch.nonzero(residue_neighbour_matrix):
-        neighbour_pairs.add((Pair(atoms[index0], atoms[index1])))
+    for index0, index1 in numpy.transpose(numpy.nonzero(neighbour_matrix)):
+        atom0 = atoms[index0]
+        atom1 = atoms_in_residue[index1]
+
+        if atom0.residue != atom1.residue:
+            neighbour_pairs.add((Pair(atom0, atom1)))
 
     return neighbour_pairs
