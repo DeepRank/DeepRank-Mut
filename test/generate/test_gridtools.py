@@ -72,7 +72,7 @@ def test_atomic_contacts_mapping():
             feature_group = variant_group.require_group('features')
             raw_feature_group = variant_group.require_group('features_raw')
 
-            compute_contact_feature(environment, feature_group, raw_feature_group, variant)
+            compute_contact_feature(environment, 30.0, feature_group, variant)
 
             for feature_type in feature_types:
                 ok_(feature_type in feature_group)
@@ -165,7 +165,7 @@ def test_abnormal_contacts_features():
             group_xyz = variant_group.require_group("features")
             group_raw = variant_group.require_group("features_raw")
 
-            compute_contact_feature(environment, group_xyz, group_raw, variant)
+            compute_contact_feature(environment, 20.0, group_xyz, variant)
 
             augmented_variant_group = f5.require_group(str(variant) + "_r001")
             f5.copy(variant_group.name + '/features/', augmented_variant_group)
