@@ -36,10 +36,9 @@ def test_compute_feature():
         hdf5_path = os.path.join(tmp_dir_path, "test.hdf5")
         with h5py.File(hdf5_path, 'w') as f5:
             feature_group = f5.require_group("features")
-            raw_feature_group = f5.require_group("raw_features")
             variant = PdbVariantSelection("101M", 'A', 17, valine, threonine)
 
-            __compute_feature__(environment, feature_group, raw_feature_group, variant)
+            __compute_feature__(environment, 10.0, feature_group, variant)
 
             data = feature_group.get(FEATURE_NAME)
 
@@ -77,10 +76,9 @@ def test_compute_feature_with_altlocs():
         hdf5_path = os.path.join(tmp_dir_path, "test.hdf5")
         with h5py.File(hdf5_path, 'w') as f5:
             feature_group = f5.require_group("features")
-            raw_feature_group = f5.require_group("raw_features")
             variant = PdbVariantSelection("5EYU", 'A', 8, serine, cysteine)
 
-            __compute_feature__(environment, feature_group, raw_feature_group, variant)
+            __compute_feature__(environment, 10.0, feature_group, variant)
 
             data = feature_group.get(FEATURE_NAME)
 

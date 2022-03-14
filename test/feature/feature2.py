@@ -4,7 +4,7 @@ import numpy
 from deeprank.operate.pdb import get_pdb_path
 
 
-def __compute_feature__(environment, featgrp, featgrp_raw, variant):
+def __compute_feature__(environment, cutoff_distance, featgrp, variant):
 
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 

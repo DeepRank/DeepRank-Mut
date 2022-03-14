@@ -8,7 +8,6 @@ import numpy
 import torch
 import torch.cuda
 from torch_scatter import scatter_sum
-from memory_profiler import profile
 
 from deeprank.config import logger
 from deeprank.models.pair import Pair
@@ -41,22 +40,19 @@ def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, v
     # We're currently not doing anything with the raw features.
 
 
-@profile(stream=open("atomic_features-mprof.log", "wt"))
-def __compute_feature__(environment, feature_group, raw_feature_group, variant):
+def __compute_feature__(environment, max_interatomic_distance, feature_group, variant):
     """
         For all atoms surrounding the variant, calculate vanderwaals, coulomb and charge features.
         This uses torch for fast computation. The downside of this is that we cannot use python objects.
 
         Args:
             environment (Environment): the environment settings
-            feature_group (hdf5 group): where to store the xyz features
+            max_interatomic_distance (float): max distance (Å) from variant to include atoms
             raw_feature_group (hdf5 group): where to store the raw features (not used)
             variant (PdbVariantSelection): the variant
     """
 
     feature_object = FeatureClass("Atomic")
-
-    max_interatomic_distance = 10.0
 
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 

@@ -28,7 +28,7 @@ def test_conservation():
             variant_group = f5.create_group(get_variant_group_name(variant))
             feature_group = variant_group.create_group("conservation_xyz")
 
-            variant_conservation.__compute_feature__(environment, feature_group, None, variant)
+            variant_conservation.__compute_feature__(environment, 10.0, feature_group, variant)
 
             wildtype_data = feature_group[variant_conservation.WT_FEATURE_NAME][()]
             variant_data = feature_group[variant_conservation.VAR_FEATURE_NAME][()]
@@ -56,7 +56,7 @@ def test_conservation_nan():
             variant_group = f5.create_group(get_variant_group_name(variant))
             feature_group = variant_group.create_group("conservation_xyz")
 
-            variant_conservation.__compute_feature__(environment, feature_group, None, variant)
+            variant_conservation.__compute_feature__(environment, 10.0, feature_group, variant)
 
             wildtype_data = feature_group[variant_conservation.WT_FEATURE_NAME][()]
             variant_data = feature_group[variant_conservation.VAR_FEATURE_NAME][()]

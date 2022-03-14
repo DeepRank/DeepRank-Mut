@@ -3,7 +3,6 @@ import os
 
 import numpy
 from scipy.spatial import distance_matrix
-from memory_profiler import profile
 
 from deeprank.models.pair import Pair
 from deeprank.models.atom import Atom
@@ -41,7 +40,6 @@ def is_xray(pdb_file):
     return False
 
 
-@profile(stream=open("get_atoms-mprof.log", 'at'))
 def get_atoms(pdb2sql):
     """ Builds a list of atom objects, according to the contents of the pdb file.
 
@@ -100,7 +98,6 @@ def get_atoms(pdb2sql):
     return list(atoms.values())
 
 
-@profile(stream=open("get_residue_contact_atom_pairs-mprof.log", 'at'))
 def get_residue_contact_atom_pairs(pdb2sql, chain_id, residue_number, insertion_code, max_interatomic_distance):
     """ Find interatomic contacts around a residue.
 

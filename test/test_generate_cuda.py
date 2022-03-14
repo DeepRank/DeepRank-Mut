@@ -61,7 +61,7 @@ class TestGenerateCUDA(unittest.TestCase):
             if not os.path.isfile(database.hdf5):
                 t0 = time()
                 print('\nCreate new database: %s' % database.hdf5)
-                database.create_database()
+                database.create_database(cutoff_distance=30.0)
                 print('--> Done in %f s.' % (time() - t0))
             else:
                 print('\nUse existing database: %s' % database.hdf5)

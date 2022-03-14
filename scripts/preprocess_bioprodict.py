@@ -70,7 +70,7 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info,
                                    compute_targets=target_modules,
                                    hdf5=hdf5_path,
                                    data_augmentation=data_augmentation)
-    data_generator.create_database()
+    data_generator.create_database(radius=grid_info["radius"])
     data_generator.map_features(grid_info)
 
 
@@ -278,9 +278,10 @@ if __name__ == "__main__":
     resolution = args.grid_size / args.grid_points
 
     grid_info = {
-       'number_of_points': [args.grid_points, args.grid_points, args.grid_points],
-       'resolution': [resolution, resolution, resolution],
-       'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+        "number_of_points": [args.grid_points, args.grid_points, args.grid_points],
+        "resolution": [resolution, resolution, resolution],
+        "atomic_densities": {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
+        "radius": args.grid_size,
     }
 
     _log.debug("getting variant data from {}".format(args.variant_path))

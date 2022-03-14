@@ -9,7 +9,6 @@ import traceback
 
 import h5py
 import numpy as np
-from memory_profiler import profile
 
 import deeprank
 from deeprank.models.variant import PdbVariantSelection
@@ -126,13 +125,12 @@ class DataGenerator(object):
 #
 # ====================================================================================
 
-    @profile(stream=open("create_database-mprof.log", 'wt'))
     def create_database(
             self,
             verbose=False,
             remove_error=True,
             prog_bar=False,
-            contact_distance=10.0,
+            distance_cutoff=10.0,
             random_seed=None):
         """Create the hdf5 file architecture and compute the features/targets.
 
@@ -140,7 +138,7 @@ class DataGenerator(object):
             verbose (bool, optional): Print creation details
             remove_error (bool, optional): remove the groups that errored
             prog_bar (bool, optional): use tqdm
-            contact_distance (float): contact distance cutoff, defaults to 10.0Å
+            distance_cutoff (float): max distance from center to include atoms, defaults to 10.0 Å
             random_seed (int): random seed for getting rotation axis and angle
 
         Raises:
@@ -281,12 +279,11 @@ class DataGenerator(object):
                             f'{"":4s}Calculating features...')
 
                     variant_group.require_group('features')
-                    variant_group.require_group('features_raw')
 
                     feature_error_flag = self._compute_features(self.compute_features,
                                                                 self.environment,
+                                                                distance_cutoff,
                                                                 variant_group['features'],
-                                                                variant_group['features_raw'],
                                                                 variant,
                                                                 self.logger)
                     if feature_error_flag:
@@ -560,12 +557,13 @@ class DataGenerator(object):
 #
 # ====================================================================================
 
-    def add_feature(self, remove_error=True, prog_bar=True):
+    def add_feature(self, remove_error=True, prog_bar=True, distance_cutoff=10.0):
         """Add a feature to an existing hdf5 file.
 
         Args:
             remove_error (bool): remove errored variant
             prog_bar (bool, optional): use tqdm
+            distance_cutoff (float, optional): max distance from center to include atoms, default 10.0 Å
 
         Example:
 
@@ -621,8 +619,8 @@ class DataGenerator(object):
 
                 error_flag = self._compute_features(self.compute_features,
                                                     self.environment,
+                                                    distance_cutoff,
                                                     variant_group['features'],
-                                                    variant_group['features_raw'],
                                                     variant,
                                                     self.logger)
 
@@ -784,7 +782,7 @@ class DataGenerator(object):
         # close the file
         f5.close()
 
-    def realign_complexes(self, align, compute_features=None, pssm_source=None):
+    def realign_complexes(self, align, compute_features=None, pssm_source=None, distance_cutoff=10.0):
         """Align all the complexes already present in the HDF5.
 
         Arguments:
@@ -794,8 +792,9 @@ class DataGenerator(object):
             compute_features {list} -- list of features to be computed
                                        if None computes the features specified in
                                        the attrs['features'] of the file (if present)
-             pssm_source {str} -- path of the pssm files. If None the source specfied in
-                                  the attrs['pssm_source'] will be used (if present) (default: {None})
+            pssm_source {str} -- path of the pssm files. If None the source specfied in
+                                 the attrs['pssm_source'] will be used (if present) (default: {None})
+            distance_cutoff {float} -- max distance from the center to include atoms (default 10.0 Å)
 
         Raises:
             ValueError: If no PSSM detected
@@ -865,8 +864,8 @@ class DataGenerator(object):
             # compute features
             error_flag = self._compute_features(self.compute_features,
                                                 self.environment,
+                                                distance_cutoff,
                                                 variant_group['features'],
-                                                variant_group['features_raw'],
                                                 variant,
                                                 self.logger)
 
@@ -947,7 +946,6 @@ class DataGenerator(object):
 # ====================================================================================
 
 
-    @profile(stream=open("map_features-mprof.log", 'wt'))
     def map_features(self, grid_info={},
                      cuda=False, gpu_block=None,
                      cuda_kernel='kernel_map.c',
@@ -1435,7 +1433,7 @@ class DataGenerator(object):
 # ====================================================================================
 
     @staticmethod
-    def _compute_features(feat_list, environment, featgrp, featgrp_raw, variant, logger):
+    def _compute_features(feat_list, environment, distance_cutoff, featgrp, variant, logger):
         """Compute the features.
 
         Args:
@@ -1443,8 +1441,8 @@ class DataGenerator(object):
                 ['deeprank.features.ResidueDensity',
                 'deeprank.features.PSSM_IC']
             environment (Environment): the environment settings
+            distance_cutoff (float): max distance from center to include atoms, default 10.0 Å
             featgrp (str): name of the group where to store the xyz feature
-            featgrp_raw (str): name of the group where to store the raw feature
             variant (PdbVariantSelection): the selected variant
             logger (logger): name of logger object
 
@@ -1455,7 +1453,7 @@ class DataGenerator(object):
         for feat in feat_list:
             try:
                 feat_module = importlib.import_module(feat, package=None)
-                feat_module.__compute_feature__(environment, featgrp, featgrp_raw, variant)
+                feat_module.__compute_feature__(environment, distance_cutoff, featgrp, variant)
 
                 for feature_key in featgrp:
                     if np.any(np.isnan(featgrp[feature_key][()])):

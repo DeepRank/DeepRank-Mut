@@ -3,14 +3,13 @@ import logging
 from pdb2sql import pdb2sql
 import freesasa
 import numpy
-from memory_profiler import profile
 
 from deeprank.config import logger
 from deeprank.features import FeatureClass
 from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_pdb_path
 
 
-def get_atoms_of_iterest(environment, variant, distance_cutoff):
+def get_atoms_of_iterest(environment, variant, radius):
 
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 
@@ -35,12 +34,10 @@ def get_atoms_of_iterest(environment, variant, distance_cutoff):
 FEATURE_NAME = "accessibility"
 
 
-@profile(stream=open("accessibility-mprof.log", 'wt'))
-def __compute_feature__(environment, featgrp, featgrp_raw, variant):
+def __compute_feature__(environment, distance_cutoff, featgrp, variant):
     "computes SASA-based features"
 
     # Let pdb2sql tell us which atoms are around the variant residue:
-    distance_cutoff = 10.0
     atoms_keys = set([])
     chain_ids = set([])
     for atom in get_atoms_of_iterest(environment, variant, distance_cutoff):

@@ -75,8 +75,7 @@ def test_has_negative_features():
     try:
         with h5py.File(hdf5_path, 'w') as f5:
             group_xyz = f5.require_group("xyz")
-            group_raw = f5.require_group("raw")
-            __compute_feature__(environment, group_xyz, group_raw, variant)
+            __compute_feature__(environment, 10.0, group_xyz, variant)
 
             charges = group_xyz[CHARGE_FEATURE_NAME][()]
             vanderwaals = group_xyz[VANDERWAALS_FEATURE_NAME][()]
@@ -151,9 +150,8 @@ def _compute_features(environment, variant):
             molgrp = f.require_group('test')
 
             features_group = molgrp.require_group('features')
-            raw_group = molgrp.require_group('features_raw')
 
-            __compute_feature__(environment, features_group, raw_group, variant)
+            __compute_feature__(environment, 10.0, features_group, variant)
 
             vanderwaals_data = features_group['vdwaals'][()]
             coulomb_data = features_group['coulomb'][()]

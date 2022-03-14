@@ -30,60 +30,6 @@ class FeatureClass(object):
         self.feature_data = {}
         self.feature_data_xyz = {}
 
-    def export_data_hdf5(self, featgrp):
-        """Export the data in xyz-val format in an HDF5 file group.
-
-        Arguments:
-            featgrp {[hdf5_group]} -- The hdf5 group of the feature
-
-        Note:
-            - For atomic features, the format of the data must be:
-                {(chainID, resSeq, resName, name): [values]}
-            - For residue features, the format must be:
-                {(chainID, resSeq, resName): [values]}
-        """
-
-        # loop through the datadict and name
-        for name, data in self.feature_data.items():
-
-            ds = []
-            for key, value in data.items():
-
-                # residue based feature
-                if len(key) == 3:
-
-                    # tags
-                    feat = '{:>4}{:>10}{:>10}'.format(key[0], key[1], key[2])
-
-                # atomic based features
-                elif len(key) == 4:
-
-                    # tags
-                    feat = '{:>4}{:>10}{:>10}{:>10}'.format(
-                        key[0], key[1], key[2], key[3])
-
-                # values
-                # note that feature_raw values have low precision
-                for v in value:
-                    feat += '    {: 1.6E}'.format(v)
-
-                # append
-                ds.append(feat)
-
-            if ds:
-                ds = np.array(ds).astype('|S' + str(len(ds[0])))
-            else:
-                ds = np.array(ds)
-
-
-            # create the dataset
-            if name + '_raw' in featgrp:
-                old_data = featgrp[name + '_raw']
-                old_data[...] = ds
-            else:
-                featgrp.create_dataset(name + '_raw', data=ds, chunks=True)
-
-
     def export_dataxyz_hdf5(self, featgrp):
         """Export the data in xyz-val format in an HDF5 file group.
 

@@ -81,11 +81,11 @@ def _get_pssm(chain_ids, variant, environment):
     return pssm
 
 
-def __compute_feature__(environment, feature_group, raw_feature_group, variant):
+def __compute_feature__(environment, distance_cutoff, feature_group, variant):
     "this feature module adds amino acid probability and residue information content as deeprank features"
 
     # Get the C-alpha atoms, each belongs to a neighbouring residue
-    neighbour_c_alphas = get_neighbour_c_alphas(environment, variant, 10.0)
+    neighbour_c_alphas = get_neighbour_c_alphas(environment, variant, distance_cutoff)
 
     # Give each chain id a number:
     chain_ids = set([atom.chain_id for atom in neighbour_c_alphas])

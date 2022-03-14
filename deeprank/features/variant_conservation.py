@@ -40,7 +40,7 @@ WT_FEATURE_NAME = "wildtype_conservation"
 VAR_FEATURE_NAME = "variant_conservation"
 
 
-def __compute_feature__(environment, feature_group, raw_feature_group, variant):
+def __compute_feature__(environment, distance_cutoff, feature_group, variant):
     "this feature module adds amino acid conservation as deeprank features"
 
     if variant.protein_accession is None or variant.protein_residue_number is None:

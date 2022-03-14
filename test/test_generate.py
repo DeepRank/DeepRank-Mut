@@ -54,7 +54,7 @@ def test_generate():
 
         # Make the class put the data in the HDF5 file:
         data_generator = DataGenerator(environment, variants, None, target_names, feature_names, 1, hdf5_path)
-        data_generator.create_database()
+        data_generator.create_database(distance_cutoff=30.0)
         data_generator.map_features(grid_info)
 
         # Read the resulting HDF5 file and check for all variant data.
@@ -115,7 +115,7 @@ def test_skip_error():
 
     try:
         data_generator = DataGenerator(environment, variants, None, target_names, feature_names, 1, hdf5_path)
-        data_generator.create_database()
+        data_generator.create_database(distance_cutoff=30.0)
         data_generator.map_features(grid_info)
 
         # Check that the output file is not empty
@@ -163,7 +163,7 @@ def test_skip_nan(mock_map_features):
 
     try:
         data_generator = DataGenerator(environment, variants, None, target_names, feature_names, 1, hdf5_path)
-        data_generator.create_database()
+        data_generator.create_database(distance_cutoff=20.0)
         data_generator.map_features(grid_info)
 
         # Check that the output file is empty, since nan entries don't belong in the output.

@@ -26,7 +26,7 @@ def test_feature():
 
         with h5py.File(hdf5_path, 'w') as f5:
             group = f5.require_group("features")
-            __compute_feature__(environment, group, None, variant)
+            __compute_feature__(environment, 10.0, group, variant)
 
             # Check that the features are present on the grid:
             ok_(len(group.get(WT_FEATURE_NAME)) > 0)
