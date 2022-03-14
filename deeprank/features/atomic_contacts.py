@@ -31,7 +31,7 @@ VANDERWAALS_FEATURE_NAME = "vdwaals"
 CHARGE_FEATURE_NAME = "charge"
 
 
-def _store_features(feature_group_xyz, feature_group_raw, feature_name, atoms, values):
+def _store_features(feature_group_xyz, feature_name, atoms, values):
 
     data = [list(atoms[index].position) + [values[index]] for index in range(len(atoms))]
 
@@ -48,7 +48,7 @@ def __compute_feature__(environment, max_interatomic_distance, feature_group, va
         Args:
             environment (Environment): the environment settings
             max_interatomic_distance (float): max distance (Å) from variant to include atoms
-            raw_feature_group (hdf5 group): where to store the raw features (not used)
+            feature_group (h5py.Group): where the features should go
             variant (PdbVariantSelection): the variant
     """
 
@@ -136,7 +136,7 @@ def __compute_feature__(environment, max_interatomic_distance, feature_group, va
 
         distances_list.append(atom_distance_matrix[index0, index1])
 
-    _store_features(feature_group, raw_feature_group, CHARGE_FEATURE_NAME, atoms, charges_per_atom)
+    _store_features(feature_group, CHARGE_FEATURE_NAME, atoms, charges_per_atom)
 
     # convert the parameter lists to tensors
     epsilons0 = torch.tensor(epsilon0_list).to(environment.device)
@@ -161,7 +161,7 @@ def __compute_feature__(environment, max_interatomic_distance, feature_group, va
     coulomb_per_atom = (scatter_sum(coulomb_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
                         scatter_sum(coulomb_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
 
-    _store_features(feature_group, raw_feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
+    _store_features(feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
 
     # calculate vanderwaals potentials
     vanderwaals_constant_factor = pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3)
@@ -184,4 +184,4 @@ def __compute_feature__(environment, max_interatomic_distance, feature_group, va
     vanderwaals_per_atom = (scatter_sum(vanderwaals_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
                             scatter_sum(vanderwaals_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
 
-    _store_features(feature_group, raw_feature_group, VANDERWAALS_FEATURE_NAME, atoms, vanderwaals_per_atom)
+    _store_features(feature_group, VANDERWAALS_FEATURE_NAME, atoms, vanderwaals_per_atom)

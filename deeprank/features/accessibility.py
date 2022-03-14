@@ -9,7 +9,7 @@ from deeprank.features import FeatureClass
 from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_pdb_path
 
 
-def get_atoms_of_iterest(environment, variant, radius):
+def get_atoms_of_iterest(environment, variant, distance_cutoff):
 
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 

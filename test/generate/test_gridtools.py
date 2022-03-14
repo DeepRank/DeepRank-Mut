@@ -70,7 +70,6 @@ def test_atomic_contacts_mapping():
             hdf5data.store_variant(variant_group, variant)
 
             feature_group = variant_group.require_group('features')
-            raw_feature_group = variant_group.require_group('features_raw')
 
             compute_contact_feature(environment, 30.0, feature_group, variant)
 
@@ -133,9 +132,8 @@ def test_nan():
             hdf5data.store_variant(variant_group, variant)
 
             feature_group = variant_group.require_group('features')
-            raw_feature_group = variant_group.require_group('features_raw')
 
-            compute_contact_feature(environment, feature_group, raw_feature_group, variant)
+            compute_contact_feature(environment, 20.0, feature_group, variant)
 
             center = DataGenerator.get_grid_center(environment, variant)
 
