@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import logging
+import csv
 
 import h5py
 import matplotlib
@@ -379,19 +380,18 @@ class NeuralNet():
         loader = data_utils.DataLoader(self.data_set, sampler=sampler)
 
         # do test
-        self.data = {}
-        _, self.data['test'] = self._epoch("test", loader, train_model=False)
-        if self.task == 'reg':
-            self._plot_scatter_reg(os.path.join(self.outdir, 'prediction.png'))
-        else:
-            self._plot_boxplot_class(os.path.join(self.outdir, 'prediction.png'))
-
-        self.plot_hit_rate(os.path.join(self.outdir + 'hitrate.png'))
-
         with SummaryWriter(log_dir=tensorboard_directory,
                            comment="test") as tensorboard_writer:
 
-            self._export_epoch_tensorboard(0, "testing", self.task, self.data, tensorboard_writer)
+            self.data = {}
+            _, self.data['test'] = self._epoch(0, "test", loader, False, tensorboard_writer)
+
+            if self.task == 'reg':
+                self._plot_scatter_reg(os.path.join(self.outdir, 'prediction.png'))
+            else:
+                self._plot_boxplot_class(os.path.join(self.outdir, 'prediction.png'))
+
+            self.plot_hit_rate(os.path.join(self.outdir + 'hitrate.png'))
 
     def save_model(self, filename='model.pth.tar'):
         """save the model to disk.
@@ -602,30 +602,24 @@ class NeuralNet():
 
                 # train the model
                 logger.info(f"\n\t=> train the model\n")
-                train_loss, self.data['train'] = self._epoch("train-epoch-%d" % epoch,
-                                                             train_loader, train_model=True)
-
-                self._export_epoch_tensorboard(epoch, "training", self.task, self.data['train'], tensorboard_writer)
+                train_loss, self.data['train'] = self._epoch(epoch, "training",
+                                                             train_loader, True, tensorboard_writer)
 
                 self.losses['train'].append(train_loss)
 
                 # validate the model
                 if _valid_:
                     logger.info(f"\n\t=> validate the model\n")
-                    valid_loss, self.data['valid'] = self._epoch("valid-epoch-%d" % epoch,
-                                                                 valid_loader, train_model=False)
-
-                    self._export_epoch_tensorboard(epoch, "validation", self.task, self.data['valid'], tensorboard_writer)
+                    valid_loss, self.data['valid'] = self._epoch(epoch, "validation",
+                                                                 valid_loader, False, tensorboard_writer)
 
                     self.losses['valid'].append(valid_loss)
 
                 # test the model
                 if _test_:
                     logger.info(f"\n\t=> test the model\n")
-                    test_loss, self.data['test'] = self._epoch("test-epoch-%d" % epoch,
-                                                               test_loader, train_model=False)
-
-                    self._export_epoch_tensorboard(epoch, "testing", self.task, self.data['test'], tensorboard_writer)
+                    test_loss, self.data['test'] = self._epoch(epoch, "testing",
+                                                               test_loader, False, tensorboard_writer)
 
                     self.losses['test'].append(test_loss)
 
@@ -671,40 +665,26 @@ class NeuralNet():
         return torch.cat([param.data.view(-1)
                           for param in self.net.parameters()], 0)
 
-
-    @staticmethod
-    def _get_epoch_logger(epoch_name):
-        log_path = "deeprank-%d_%s.log" % (os.getpid(), epoch_name)
-
-        logger = logging.getLogger(epoch_name)
-
-        handler = logging.FileHandler(log_path)
-        logger.addHandler(handler)
-
-        logger.setLevel(logging.DEBUG)
-
-        return logger
-
-    def _epoch(self, epoch_name, data_loader, train_model):
+    def _epoch(self, epoch_index, pass_name, data_loader, train_model, tensorboard_writer):
         """Perform one single epoch iteration over a data loader.
 
         Args:
+            epoch_index (int): index of the epoch
+            pass_name (str): a name for the pass, like: training, validation, testing
             data_loader (torch.DataLoader): DataLoader for the epoch
             train_model (bool): train the model if True or not if False
+            tensorboard_writer (tensorboard.SummaryWriter): output for tensorboard data
 
         Returns:
             float: loss of the model
             dict:  data of the epoch
         """
 
-        # intermediate logger
-        epoch_logger = NeuralNet._get_epoch_logger(epoch_name)
-
         # variables of the epoch
-        running_loss = 0
         data = {'outputs': [], 'targets': [], 'mol': [], "variant": []}
 
-        n = 0
+        sum_of_losses = 0.0
+        count_data_entries = 0
         debug_time = False
         time_learn = 0
 
@@ -714,25 +694,23 @@ class NeuralNet():
 
         mini_batch = 0
 
-        epoch_logger.info("running epoch on {} data entries".format(len(data_loader)))
+        batch_count = len(data_loader)
+        logger.info("running epoch {} on {} batches".format(epoch_index, batch_count))
 
-        for d in data_loader:
+        for batch_index, batch in enumerate(data_loader):
 
             mini_batch = mini_batch + 1
 
             logger.info(f"\t\t-> mini-batch: {mini_batch} ")
 
             # get the data
-            inputs = d['feature']
-            targets = d['target']
-            mol = d['mol']
+            inputs = batch['feature']
+            targets = batch['target']
+            entry_names = batch['mol'][1]
 
-            epoch_logger.debug("data entry {}".format(mol))
             for input_index, input_ in enumerate(inputs):
                 input_ = np.array(input_)
                 input_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in input_.shape]), np.min(input_), np.max(input_))
-                epoch_logger.debug("  has input {}: {}\n{}".format(input_index, input_summary, input_))
-            epoch_logger.debug("  has target: {}".format(targets))
 
             # transform the data
             inputs, targets = self._get_variables(inputs, targets)
@@ -743,8 +721,6 @@ class NeuralNet():
             # forward
             outputs = self.net(inputs)
 
-            epoch_logger.debug("data entry {}:\n  has output:{}".format(mol, outputs))
-
             # class complains about the shape ...
             if self.task == 'class':
                 targets = targets.view(-1)
@@ -752,10 +728,8 @@ class NeuralNet():
             # evaluate loss
             loss = self.criterion(outputs, targets)
 
-            epoch_logger.debug("data entry {}:\n  has loss:{}".format(mol, loss))
-
-            running_loss += loss.data.item()  # pytorch1 compatible
-            n += len(inputs)
+            sum_of_losses += loss.detach().item() * outputs.shape[0]
+            count_data_entries += outputs.shape[0]
 
             # zero + backward + step
             if train_model:
@@ -772,47 +746,24 @@ class NeuralNet():
                 data['outputs'] += outputs.data.numpy().tolist()
                 data['targets'] += targets.data.numpy().tolist()
 
-            # write the names of the variant to the epoch data
-            fname, molname = mol[0], mol[1]
-            for f, m in zip(fname, molname):
-                data['mol'] += [(f, m)]
-
-                with h5py.File(f, 'r') as f5:
-                    variant = load_variant(f5[m])
-
-                variant_row = [variant.pdb_ac, variant.chain_id, variant.residue_id,
-                               variant.wild_type_amino_acid.name, variant.variant_amino_acid.name]
-
-                if variant.protein_accession is not None:
-                    variant_row.append(variant.protein_accession)
-                else:
-                    variant_row.append("")
-
-                if variant.protein_residue_number is not None:
-                    variant_row.append(str(variant.protein_residue_number))
-                else:
-                    variant_row.append("")
-
-                data['variant'].append(variant_row)
+            self._export_batch(epoch_index, batch_index, pass_name, self.task, batch_count,
+                               loss.detach().item(), entry_names, targets.detach(), outputs.detach(),
+                               tensorboard_writer)
 
         # transform the output back
         data['outputs'] = np.array(data['outputs'])  # .flatten()
         data['targets'] = np.array(data['targets'])  # .flatten()
 
-        # make np for export
-        data['mol'] = np.array(data['mol'], dtype=object)
-        data['variant'] = np.array(data['variant'], dtype=object)
-
         # normalize the loss
-        if n != 0:
-            running_loss /= n
+        if count_data_entries > 0:
+            data['loss'] = sum_of_losses / count_data_entries
         else:
             warnings.warn(f'Empty input in data_loader {data_loader}.')
+            data['loss'] = 0.0
 
-        epoch_logger.info("running loss: {}".format(running_loss))
-        data['loss'] = running_loss
+        logger.info("epoch {} has loss: {}".format(epoch_index, data['loss']))
 
-        return running_loss, data
+        return data['loss'], data
 
     def _get_variables(self, inputs, targets):
         # xue: why not put this step to DataSet.py?
@@ -968,7 +919,10 @@ class NeuralNet():
                         targets = phase_group["targets"][()]
 
                         tp, tn, fp, fn = get_tp_tn_fp_fn(outputs, targets)
-                        mcc = get_mcc(tp, tn, fp, fn)
+                        try:
+                            mcc = get_mcc(tp, tn, fp, fn)
+                        except ValueError:
+                            continue
 
                         plot_data[phase_name]['epochs'].append(epoch_number)
                         plot_data[phase_name]['mcc'].append(mcc)
@@ -1056,17 +1010,46 @@ class NeuralNet():
         return pred.astype(int)
 
     @staticmethod
-    def _export_epoch_tensorboard(epoch_number, pass_name, task, epoch_data, tensorboard_writer):
+    def _export_batch(epoch_index, batch_index, pass_name, task, batch_count,
+                      loss, entry_names, targets, outputs, tensorboard_writer):
 
-        if 'loss' in epoch_data:
-            loss = epoch_data['loss']
-            tensorboard_writer.add_scalar(f"{pass_name} loss", loss, epoch_number)
+        time_step = int((epoch_index + (batch_index / batch_count)) * 100)
+
+        tensorboard_writer.add_scalar(f"{pass_name} loss", loss, time_step)
 
         if task == "class":
-            tp, tn, fp, fn = get_tp_tn_fp_fn(epoch_data['outputs'], epoch_data['targets'])
+            tp, tn, fp, fn = get_tp_tn_fp_fn(outputs, targets)
 
-            mcc = get_mcc(tp, tn, fp, fn)
-            tensorboard_writer.add_scalar(f"{pass_name} MCC", mcc, epoch_number)
+            try:
+                mcc = get_mcc(tp, tn, fp, fn)
+
+            except ValueError:  # if the denominator is zero
+                mcc = None
+
+            if mcc is not None:
+                tensorboard_writer.add_scalar(f"{pass_name} MCC", mcc, time_step)
 
             accuracy = (tp + tn) / (tp + tn + fp + fn) 
-            tensorboard_writer.add_scalar(f"{pass_name} accuracy", accuracy, epoch_number)
+            tensorboard_writer.add_scalar(f"{pass_name} accuracy", accuracy, time_step)
+
+        NeuralNet._export_batch_output(epoch_index, batch_index, pass_name,
+                                       entry_names, targets, outputs,
+                                       tensorboard_writer.log_dir)
+
+    @staticmethod
+    def _export_batch_output(epoch_index, batch_index, pass_name, entry_names, targets, outputs, directory_path):
+
+        output_path = os.path.join(directory_path, f"{pass_name}-epoch{epoch_index}-batch{batch_index}.csv")
+
+        with open(output_path, 'wt') as f:
+            w = csv.writer(f)
+
+            w.writerow(["entry", "output", "target"])
+
+            for entry_index, entry_name in enumerate(entry_names):
+                target = str(targets[entry_index].item())
+                output = " ".join([str(x.item()) for x in outputs[entry_index]])
+
+                row = [entry_name, output, target]
+
+                w.writerow(row)

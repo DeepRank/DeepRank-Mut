@@ -13,7 +13,7 @@ def get_variant_group_name(variant):
         Returns (str): an unique name for a given variant object
     """
 
-    mol_name = os.path.splitext(os.path.basename(variant.pdb_ac))[0]
+    mol_name = str(variant)
 
     return "%s-%s" % (mol_name, str(hash(variant)).replace('-', 'm'))
 

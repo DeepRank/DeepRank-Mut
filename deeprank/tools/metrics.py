@@ -63,4 +63,12 @@ def get_mcc(tp, tn, fp, fn):
     Returns (float): Mathews Correlation Coefficient
     """
 
-    return (tp * tn - fp * fn) / sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    numerator = tp * tn - fp * fn
+    if numerator == 0:
+        return 0.0
+
+    denominator = sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    if denominator == 0:
+        raise ValueError(f"MCC denominator is zero for tp={tp}, tn={tn}, fp={fp}, fn={fn}")
+
+    return numerator / denominator
