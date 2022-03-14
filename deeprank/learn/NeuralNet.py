@@ -20,7 +20,7 @@ import torch.optim as optim
 import torch.utils.data as data_utils
 from torchsummary import summary
 
-from deeprank.operate.hdf5data import load_variant
+from deeprank.operate.hdf5data import load_variant, get_variant_group_name
 from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
@@ -665,6 +665,19 @@ class NeuralNet():
         return torch.cat([param.data.view(-1)
                           for param in self.net.parameters()], 0)
 
+    @staticmethod
+    def _read_entry_names(batch):
+        entry_names = []
+        for file_path, group_name in zip(batch['mol'][0], batch['mol'][1]):
+            with h5py.File(file_path, 'r') as f5:
+                entry_group = f5[group_name]
+                variant = load_variant(entry_group)
+                entry_name = get_variant_group_name(variant)
+
+                entry_names.append(entry_name)
+
+        return entry_names
+
     def _epoch(self, epoch_index, pass_name, data_loader, train_model, tensorboard_writer):
         """Perform one single epoch iteration over a data loader.
 
@@ -706,7 +719,7 @@ class NeuralNet():
             # get the data
             inputs = batch['feature']
             targets = batch['target']
-            entry_names = batch['mol'][1]
+            entry_names = self._read_entry_names(batch)
 
             for input_index, input_ in enumerate(inputs):
                 input_ = np.array(input_)
