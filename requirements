@@ -18,3 +18,5 @@ nose
 glfw
 pyrr
 pyopengl
+torchvision
+tensorboard
