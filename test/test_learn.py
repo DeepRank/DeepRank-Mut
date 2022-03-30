@@ -11,9 +11,10 @@ from deeprank.models.variant import PdbVariantSelection
 from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.NeuralNet import NeuralNet
-from deeprank.learn.model3d import cnn_reg
+from deeprank.learn.model3d import cnn_class
 from deeprank.models.environment import Environment
-from deeprank.domain.amino_acid import valine, cysteine, serine
+from deeprank.domain.amino_acid import *
+from deeprank.models.metrics import OutputExporter
 import deeprank.config
 
 
@@ -42,8 +43,8 @@ def test_learn():
 
     variants = [PdbVariantSelection("101m", "A", 10, valine, cysteine,
                                     protein_accession="P02144", protein_residue_number=10),
-                PdbVariantSelection("5EYU", "A", 8, serine, cysteine,
-                                    protein_accession="Q9L4P8")]
+                PdbVariantSelection("101m", "A", 8, glutamine, cysteine,
+                                    protein_accession="P02144")]
 
     work_dir_path = mkdtemp()
     try:
@@ -51,7 +52,7 @@ def test_learn():
 
         # data_augmentation has been set to a high number, so that
         # the train, valid and test set can be large enough.
-        data_generator = DataGenerator(environment, variants, data_augmentation=25,
+        data_generator = DataGenerator(environment, variants, data_augmentation=5,
                                        compute_targets=target_modules,
                                        compute_features=feature_modules,
                                        hdf5=hdf5_path)
@@ -68,31 +69,16 @@ def test_learn():
         ok_(len(dataset) > 0)
         ok_(dataset[0] is not None)
 
-        net_output_dir_path = os.path.join(work_dir_path, 'net-output')
-        neural_net = NeuralNet(dataset, cnn_reg, model_type='3d',task='reg',
-                               cuda=False, plot=True, outdir=net_output_dir_path)
+        metrics_directory = os.path.join(work_dir_path, "runs")
+
+        neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class',
+                               cuda=False, metrics_exporters=[OutputExporter(metrics_directory)])
 
         neural_net.optimizer = optim.SGD(neural_net.net.parameters(),
                                          lr=0.001,
                                          momentum=0.9,
                                          weight_decay=0.005)
 
-        tensorboard_directory = os.path.join(work_dir_path, "tensorboard-runs")
-
-        neural_net.train(nepoch = 50, divide_trainset=0.8, train_batch_size = 5, num_workers=0,
-                         tensorboard_directory=tensorboard_directory)
+        neural_net.train(nepoch=10, divide_trainset=0.8, train_batch_size=2, num_workers=0)
     finally:
         rmtree(work_dir_path)
-
-
-def test_plot_mcc():
-
-    plot_file, plot_path = mkstemp(prefix="plot-mcc", suffix=".png")
-    os.close(plot_file)
-
-    try:
-        with h5py.File("test/data/epoch_data.hdf5", "r") as f5:
-            NeuralNet.plot_mcc(f5, plot_path)
-    finally:
-        if os.path.isfile(plot_path):
-            os.remove(plot_path)

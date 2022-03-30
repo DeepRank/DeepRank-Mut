@@ -1,6 +1,9 @@
 Byte-compiled / optimized
 *__pycache__*
 
+# deeprank model files
+*_model.pth.tar
+
 # log files
 *.log
 

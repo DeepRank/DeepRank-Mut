@@ -4,6 +4,7 @@ import sys
 import time
 import logging
 import csv
+from typing import List
 
 import h5py
 import matplotlib
@@ -24,8 +25,7 @@ from deeprank.operate.hdf5data import load_variant, get_variant_group_name
 from deeprank.config import logger
 from deeprank.learn import DataSet, classMetrics, rankingMetrics
 from torch.autograd import Variable
-from deeprank.tools.metrics import get_tp_tn_fp_fn, get_mcc
-from torch.utils.tensorboard import SummaryWriter
+from deeprank.models.metrics import MetricsExporterCollection, MetricsExporter
 
 matplotlib.use('agg')
 
@@ -37,8 +37,7 @@ class NeuralNet():
                  class_weights = None,
                  pretrained_model=None,
                  cuda=False, ngpu=0,
-                 plot=True,
-                 outdir='./'):
+                 metrics_exporters: List[MetricsExporter] = None):
         """Train a Convolutional Neural Network for DeepRank.
 
         Args:
@@ -78,9 +77,7 @@ class NeuralNet():
 
             ngpu (int): number of GPU to be used.
 
-            plot (bool): Plot the prediction results.
-
-            outdir (str): output directory
+            metrics_exporters: to be used for output during the run
 
         Raises:
             ValueError: if dataset format is not recognized
@@ -174,11 +171,9 @@ class NeuralNet():
         # Set the loss functiom
         if self.task == 'reg':
             self.criterion = nn.MSELoss(reduction='sum')
-            self._plot_scatter = self._plot_scatter_reg
 
         elif self.task == 'class':
             self.criterion = nn.CrossEntropyLoss(weight = self.class_weights, reduction='mean')
-            self._plot_scatter = self._plot_boxplot_class
         else:
             raise ValueError(
                 f"Task {self.task} not recognized. Options are:\n\t "
@@ -187,15 +182,7 @@ class NeuralNet():
         # ------------------------------------------
         # Output
         # ------------------------------------------
-
-        # plot or not plot
-        self.plot = plot
-
-        # output directory
-        self.outdir = outdir
-        if self.plot:
-            if not os.path.isdir(self.outdir):
-                os.mkdir(outdir)
+        self._metrics_output = MetricsExporterCollection(*metrics_exporters)
 
         # ------------------------------------------
         # Network
@@ -276,7 +263,6 @@ class NeuralNet():
     def train(self,
               nepoch=50,
               divide_trainset=None,
-              tensorboard_directory=None,
               train_batch_size=10,
               preshuffle=True,
               preshuffle_seed=None,
@@ -291,8 +277,6 @@ class NeuralNet():
             divide_trainset (list, optional): the percentage assign to
                 the training, validation and test set.
                 Examples: [0.7, 0.2, 0.1], [0.8, 0.2], None
-
-            tensorboard_directory (path, optional): where to store the training results
 
             train_batch_size (int, optional): size of the batch
 
@@ -329,7 +313,6 @@ class NeuralNet():
         t0 = time.time()
         self._train(index_train, index_valid, index_test,
                     nepoch=nepoch,
-                    tensorboard_directory=tensorboard_directory,
                     train_batch_size=train_batch_size,
                     num_workers=num_workers,
                     save_model=save_model)
@@ -354,11 +337,8 @@ class NeuralNet():
         seconds = time
         return '%02d-%02d:%02d:%02d' % (day, hour, minutes, seconds)
 
-    def test(self, tensorboard_directory=None):
+    def test(self):
         """Test a predefined model on a new dataset.
-
-        Args:
-            tensorboard_directory (path, optional): where to store the test results
 
         Examples:
             >>> # adress of the database
@@ -380,18 +360,9 @@ class NeuralNet():
         loader = data_utils.DataLoader(self.data_set, sampler=sampler)
 
         # do test
-        with SummaryWriter(log_dir=tensorboard_directory,
-                           comment="test") as tensorboard_writer:
+        with self._metrics_output:
 
-            self.data = {}
-            _, self.data['test'] = self._epoch(0, "test", loader, False, tensorboard_writer)
-
-            if self.task == 'reg':
-                self._plot_scatter_reg(os.path.join(self.outdir, 'prediction.png'))
-            else:
-                self._plot_boxplot_class(os.path.join(self.outdir, 'prediction.png'))
-
-            self.plot_hit_rate(os.path.join(self.outdir + 'hitrate.png'))
+            self._epoch(0, "test", loader, False)
 
     def save_model(self, filename='model.pth.tar'):
         """save the model to disk.
@@ -399,8 +370,6 @@ class NeuralNet():
         Args:
             filename (str, optional): name of the file
         """
-        filename = os.path.join(self.outdir, filename)
-
         state = {'state_dict': self.net.state_dict(),
                  'optimizer': self.optimizer.state_dict(),
                  'normalize_features': self.data_set.normalize_features,
@@ -511,7 +480,6 @@ class NeuralNet():
 
     def _train(self, index_train, index_valid, index_test,
                nepoch=50, train_batch_size=5,
-               tensorboard_directory=None,
                num_workers=1,
                save_model='best'):
         """Train the model.
@@ -522,7 +490,6 @@ class NeuralNet():
             index_test  (list(int)): Indices of the testing set
             nepoch (int, optional): numbr of epoch
             train_batch_size (int, optional): size of the batch
-            tensorboard_directory (directory path, optional): where to store the results
             num_workers (int, optional): number of workers pytorch
                 uses to create the batch size
             save_model (str, optional): 'all' or 'best'
@@ -588,39 +555,38 @@ class NeuralNet():
                      'valid': float('Inf'),
                      'test': float('Inf')}
 
-        with SummaryWriter(log_dir=tensorboard_directory,
-                           filename_suffix="_train",
-                           comment="train") as tensorboard_writer:
+        with self._metrics_output:
+
+            # Measure the values at epoch zero:
+            self._epoch(0, "training", train_loader, False)
+            if _valid_:
+                self._epoch(0, "validation", valid_loader, False)
+            if _test_:
+                self._epoch(0, "testing", test_loader, False)
 
             # training loop
             av_time = 0.0
             self.data = {}
-            for epoch in range(nepoch):
+            for epoch in range(1, nepoch + 1):
 
                 logger.info(f'\n: epoch {epoch:03d} / {nepoch:03d} {"-"*45}')
                 t0 = time.time()
 
                 # train the model
                 logger.info(f"\n\t=> train the model\n")
-                train_loss, self.data['train'] = self._epoch(epoch, "training",
-                                                             train_loader, True, tensorboard_writer)
-
+                train_loss = self._epoch(epoch, "training", train_loader, True)
                 self.losses['train'].append(train_loss)
 
                 # validate the model
                 if _valid_:
                     logger.info(f"\n\t=> validate the model\n")
-                    valid_loss, self.data['valid'] = self._epoch(epoch, "validation",
-                                                                 valid_loader, False, tensorboard_writer)
-
+                    valid_loss = self._epoch(epoch, "validation", valid_loader, False)
                     self.losses['valid'].append(valid_loss)
 
                 # test the model
                 if _test_:
                     logger.info(f"\n\t=> test the model\n")
-                    test_loss, self.data['test'] = self._epoch(epoch, "testing",
-                                                               test_loader, False, tensorboard_writer)
-
+                    test_loss = self._epoch(epoch, "testing", test_loader, False)
                     self.losses['test'].append(test_loss)
 
                 # talk a bit about losse
@@ -647,23 +613,12 @@ class NeuralNet():
                     if mode not in self.losses:
                         continue
                     if self.losses[mode][-1] < min_error[mode]:
-                        self.save_model(
-                            filename="best_{}_model.pth.tar".format(mode))
+                        self.save_model(filename="best_{}_model.pth.tar".format(mode))
                         min_error[mode] = self.losses[mode][-1]
 
                 # save all the model if required
                 if save_model == 'all':
                     self.save_model(filename="model_epoch_%04d.pth.tar" % epoch)
-
-                if self.plot:
-                    figname = os.path.join(self.outdir,
-                        f"prediction_{epoch:04d}.png")
-                    self._plot_scatter(figname)
-
-                sys.stdout.flush()
-
-        return torch.cat([param.data.view(-1)
-                          for param in self.net.parameters()], 0)
 
     @staticmethod
     def _read_entry_names(batch):
@@ -678,7 +633,7 @@ class NeuralNet():
 
         return entry_names
 
-    def _epoch(self, epoch_index, pass_name, data_loader, train_model, tensorboard_writer):
+    def _epoch(self, epoch_number, pass_name, data_loader, train_model):
         """Perform one single epoch iteration over a data loader.
 
         Args:
@@ -686,15 +641,11 @@ class NeuralNet():
             pass_name (str): a name for the pass, like: training, validation, testing
             data_loader (torch.DataLoader): DataLoader for the epoch
             train_model (bool): train the model if True or not if False
-            tensorboard_writer (tensorboard.SummaryWriter): output for tensorboard data
 
         Returns:
             float: loss of the model
             dict:  data of the epoch
         """
-
-        # variables of the epoch
-        data = {'outputs': [], 'targets': [], 'mol': [], "variant": []}
 
         sum_of_losses = 0.0
         count_data_entries = 0
@@ -708,7 +659,11 @@ class NeuralNet():
         mini_batch = 0
 
         batch_count = len(data_loader)
-        logger.info("running epoch {} on {} batches".format(epoch_index, batch_count))
+        logger.info("running epoch {} on {} batches".format(epoch_number, batch_count))
+
+        entry_names = []
+        output_values = []
+        target_values = []
 
         for batch_index, batch in enumerate(data_loader):
 
@@ -719,11 +674,7 @@ class NeuralNet():
             # get the data
             inputs = batch['feature']
             targets = batch['target']
-            entry_names = self._read_entry_names(batch)
-
-            for input_index, input_ in enumerate(inputs):
-                input_ = np.array(input_)
-                input_summary = "%s<{%f - %f}" % ("x".join([str(n) for n in input_.shape]), np.min(input_), np.max(input_))
+            entry_names += self._read_entry_names(batch)
 
             # transform the data
             inputs, targets = self._get_variables(inputs, targets)
@@ -739,44 +690,29 @@ class NeuralNet():
                 targets = targets.view(-1)
 
             # evaluate loss
-            loss = self.criterion(outputs, targets)
+            batch_loss = self.criterion(outputs, targets)
 
-            sum_of_losses += loss.detach().item() * outputs.shape[0]
+            sum_of_losses += batch_loss.detach().item() * outputs.shape[0]
             count_data_entries += outputs.shape[0]
 
             # zero + backward + step
             if train_model:
                 self.optimizer.zero_grad()
-                loss.backward()
+                batch_loss.backward()
                 self.optimizer.step()
             time_learn += time.time() - tlearn0
 
-            # get the outputs for export
-            if self.cuda:
-                data['outputs'] += outputs.data.cpu().numpy().tolist()
-                data['targets'] += targets.data.cpu().numpy().tolist()
-            else:
-                data['outputs'] += outputs.data.numpy().tolist()
-                data['targets'] += targets.data.numpy().tolist()
+            output_values += outputs.tolist()
+            target_values += targets.tolist()
 
-            self._export_batch(epoch_index, batch_index, pass_name, self.task, batch_count,
-                               loss.detach().item(), entry_names, targets.detach(), outputs.detach(),
-                               tensorboard_writer)
+        self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
 
-        # transform the output back
-        data['outputs'] = np.array(data['outputs'])  # .flatten()
-        data['targets'] = np.array(data['targets'])  # .flatten()
-
-        # normalize the loss
         if count_data_entries > 0:
-            data['loss'] = sum_of_losses / count_data_entries
+            epoch_loss = sum_of_losses / count_data_entries
         else:
-            warnings.warn(f'Empty input in data_loader {data_loader}.')
-            data['loss'] = 0.0
+            epoch_loss = 0.0
 
-        logger.info("epoch {} has loss: {}".format(epoch_index, data['loss']))
-
-        return data['loss'], data
+        return epoch_loss
 
     def _get_variables(self, inputs, targets):
         # xue: why not put this step to DataSet.py?
@@ -808,261 +744,3 @@ class NeuralNet():
 
         return inputs, targets
 
-    def _plot_scatter_reg(self, figname):
-        """Plot a scatter plots of predictions VS targets.
-
-        Useful to visualize the performance of the training algorithm
-
-        Args:
-            figname (str): filename
-        """
-
-        # abort if we don't want to plot
-        if self.plot is False:
-            return
-
-        logger.info(f'\n  --> Scatter Plot: {figname}')
-
-        color_plot = {'train': 'red', 'valid': 'blue', 'test': 'green'}
-        labels = ['train', 'valid', 'test']
-
-        fig, ax = plt.subplots()
-
-        xvalues = np.array([])
-        yvalues = np.array([])
-
-        for l in labels:
-
-            if l in self.data:
-
-                targ = self.data[l]['targets'].flatten()
-                out = self.data[l]['outputs'].flatten()
-
-                xvalues = np.append(xvalues, targ)
-                yvalues = np.append(yvalues, out)
-
-                ax.scatter(targ, out, c=color_plot[l], label=l)
-
-        legend = ax.legend(loc='upper left')
-        ax.set_xlabel('Targets')
-        ax.set_ylabel('Predictions')
-
-        values = np.append(xvalues, yvalues)
-
-        border = 0.1 * (values.max() - values.min())
-        ax.plot([values.min() - border, values.max() + border],
-                [values.min() - border, values.max() + border])
-
-        fig.savefig(figname)
-        plt.close()
-
-    def _plot_boxplot_class(self, figname):
-        """Plot a boxplot of predictions VS targets.
-
-        It is only usefull in classification tasks.
-
-        Args:
-            figname (str): filename
-        """
-
-        # abort if we don't want to plot
-        if not self.plot:
-            return
-
-        logger.info(f'\n  --> Box Plot: {figname}')
-
-        color_plot = {'train': 'red', 'valid': 'blue', 'test': 'green'}
-        labels = ['train', 'valid', 'test']
-
-        nwin = len(self.data)
-
-        fig, ax = plt.subplots(1, nwin, sharey=True, squeeze=False)
-
-        iwin = 0
-        for l in labels:
-
-            if l in self.data:
-
-                tar = self.data[l]['targets']
-                out = self.data[l]['outputs']
-
-                data = [[], []]
-                confusion = [[0, 0], [0, 0]]
-                for pts, t in zip(out, tar):
-                    r = F.softmax(torch.FloatTensor(pts), dim=0).data.numpy()
-                    data[t].append(r[1])
-                    confusion[t][bool(r[1] > 0.5)] += 1
-
-                #print("  {:5s}: {:s}".format(l,str(confusion)))
-
-                ax[0, iwin].boxplot(data)
-                ax[0, iwin].set_xlabel(l)
-                ax[0, iwin].set_xticklabels(['0', '1'])
-                iwin += 1
-
-        fig.savefig(figname, bbox_inches='tight')
-        plt.close()
-
-
-    @staticmethod
-    def plot_mcc(data_hdf5_file, figure_path):
-        """ Plot MCC values on the Y-axis and epochs on the X-axis
-
-        Args:
-            figname (str): filename
-        """
-
-        plot_colors = {'train': 'red', 'valid': 'blue', 'test': 'green'}
-
-        # gather data from hdf5 file
-        plot_data = {}
-        for key in data_hdf5_file:
-            if key.startswith("epoch_"):
-                epoch_number = int(key.split('_')[1])
-
-                for phase_name in plot_colors:
-                    if phase_name in data_hdf5_file[key]:
-
-                        if phase_name not in plot_data:
-                            plot_data[phase_name] = {'epochs':[], 'mcc': []}
-
-                        phase_group = data_hdf5_file["{}/{}".format(key, phase_name)]
-
-                        outputs = phase_group["outputs"][()]
-                        targets = phase_group["targets"][()]
-
-                        tp, tn, fp, fn = get_tp_tn_fp_fn(outputs, targets)
-                        try:
-                            mcc = get_mcc(tp, tn, fp, fn)
-                        except ValueError:
-                            continue
-
-                        plot_data[phase_name]['epochs'].append(epoch_number)
-                        plot_data[phase_name]['mcc'].append(mcc)
-
-        # create plot
-        figure, axis = plt.subplots()
-        for phase_name, color in plot_colors.items():
-            if phase_name in plot_data:
-                plt.plot(plot_data[phase_name]['epochs'], plot_data[phase_name]['mcc'], c=color, label=phase_name)
-
-        legend = axis.legend(loc='upper left')
-        axis.set_xlabel("epoch")
-        axis.set_ylabel("MCC")
-
-        figure.savefig(figure_path)
-        plt.close()
-
-
-    def plot_hit_rate(self, figname):
-        """Plot the hit rate of the different training/valid/test sets.
-
-        The hit rate is defined as:
-            The percentage of positive(near-native) decoys that are
-            included among the top m decoys.
-
-        Args:
-            figname (str): filename for the plot
-            irmsd_thr (float, optional): threshold for 'good' models
-        """
-        if self.plot is False:
-            return
-
-        logger.info(f'\n  --> Hitrate plot: {figname}\n')
-
-        color_plot = {'train': 'red', 'valid': 'blue', 'test': 'green'}
-        labels = ['train', 'valid', 'test']
-
-        fig, ax = plt.subplots()
-        for l in labels:
-            if l in self.data:
-                if 'hit' in self.data[l]:
-                    hitrate = rankingMetrics.hitrate(self.data[l]['hit'])
-                    m = len(hitrate)
-                    x = np.linspace(0, 100, m)
-                    plt.plot(x, hitrate, c=color_plot[l], label=f"{l} M={m}")
-        legend = ax.legend(loc='upper left')
-        ax.set_xlabel('Top M (%)')
-        ax.set_ylabel('Hit Rate')
-
-        fmt = '%.0f%%'
-        xticks = mtick.FormatStrFormatter(fmt)
-        ax.xaxis.set_major_formatter(xticks)
-
-        fig.savefig(figname)
-        plt.close()
-
-    def _get_classmetrics(self, data, metricname):
-
-        # get predctions
-        pred = self._get_binclass_prediction(data)
-
-        # get real targets
-        targets = data['targets']
-
-        # get metric values
-        if metricname == 'acc':
-            return classMetrics.accuracy(pred, targets)
-        elif metricname == 'tpr':
-            return classMetrics.sensitivity(pred, targets)
-        elif metricname == 'tnr':
-            return classMetrics.specificity(pred, targets)
-        elif metricname == 'ppv':
-            return classMetrics.precision(pred, targets)
-        elif metricname == 'f1':
-            return classMetrics.F1(pred, targets)
-        else:
-            return None
-
-    @staticmethod
-    def _get_binclass_prediction(data):
-
-        out = data['outputs']
-        probility = F.softmax(torch.FloatTensor(out), dim=1).data.numpy()
-        pred = probility[:, 0] <= probility[:, 1]
-        return pred.astype(int)
-
-    @staticmethod
-    def _export_batch(epoch_index, batch_index, pass_name, task, batch_count,
-                      loss, entry_names, targets, outputs, tensorboard_writer):
-
-        time_step = int((epoch_index + (batch_index / batch_count)) * 100)
-
-        tensorboard_writer.add_scalar(f"{pass_name} loss", loss, time_step)
-
-        if task == "class":
-            tp, tn, fp, fn = get_tp_tn_fp_fn(outputs, targets)
-
-            try:
-                mcc = get_mcc(tp, tn, fp, fn)
-
-            except ValueError:  # if the denominator is zero
-                mcc = None
-
-            if mcc is not None:
-                tensorboard_writer.add_scalar(f"{pass_name} MCC", mcc, time_step)
-
-            accuracy = (tp + tn) / (tp + tn + fp + fn) 
-            tensorboard_writer.add_scalar(f"{pass_name} accuracy", accuracy, time_step)
-
-        NeuralNet._export_batch_output(epoch_index, batch_index, pass_name,
-                                       entry_names, targets, outputs,
-                                       tensorboard_writer.log_dir)
-
-    @staticmethod
-    def _export_batch_output(epoch_index, batch_index, pass_name, entry_names, targets, outputs, directory_path):
-
-        output_path = os.path.join(directory_path, f"{pass_name}-epoch{epoch_index}-batch{batch_index}.csv")
-
-        with open(output_path, 'wt') as f:
-            w = csv.writer(f)
-
-            w.writerow(["entry", "output", "target"])
-
-            for entry_index, entry_name in enumerate(entry_names):
-                target = str(targets[entry_index].item())
-                output = " ".join([str(x.item()) for x in outputs[entry_index]])
-
-                row = [entry_name, output, target]
-
-                w.writerow(row)
