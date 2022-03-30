@@ -45,6 +45,8 @@ setup(
         'tqdm',
         'pandas',
         'mpi4py',
+        'pdbecif',
+        'tables',
         'matplotlib',
         'torchsummary',
         'torch',
@@ -55,7 +57,11 @@ setup(
         'freesasa==2.0.3.post7;platform_system=="Linux"',
         'freesasa==2.0.5;platform_system=="Darwin"',
         'fastparquet',
-        'memory_profiler'
+        'memory_profiler',
+        'sklearn',
+        'pyopengl',
+        'glfw',
+        'pyrr'
         ],
     extras_require={
         'test': ['nose', 'coverage', 'pytest', 'pytest-cov',
