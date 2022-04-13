@@ -13,6 +13,8 @@ sys.path.insert(0, deeprank_root)
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.model3d import cnn_class
+from deeprank.models.metrics import OutputExporter
+from deeprank.models.metrics import TensorboardBinaryClassificationExporter
 
 
 logging.basicConfig(filename="learn-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
