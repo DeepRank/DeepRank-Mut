@@ -82,4 +82,4 @@ if __name__ == "__main__":
                            metrics_exporters=[OutputExporter(run_directory),
                                               TensorboardBinaryClassificationExporter(run_directory)])
     neural_net.optimizer = optim.SGD(neural_net.net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.005)
-    neural_net.train(nepoch = epoch_count, divide_trainset=[0.7, 0.2, 0.1], train_batch_size = 5, num_workers=0)
+    neural_net.train(nepoch = epoch_count, divide_trainset=None, train_batch_size = 5, num_workers=0)
