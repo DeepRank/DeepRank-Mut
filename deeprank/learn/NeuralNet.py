@@ -224,10 +224,13 @@ class NeuralNet():
             self.net = self.net.cuda()
 
         # set the optimizer
-        self.optimizer = optim.SGD(self.net.parameters(),
-                                   lr=0.005,
-                                   momentum=0.9,
-                                   weight_decay=0.001)
+        #self.optimizer = optim.SGD(self.net.parameters(),
+        #                           lr=0.005,
+        #                           momentum=0.9,
+        #                           weight_decay=0.001)
+        self.optimizer = optim.AdamW(self.net.parameters(),
+                                     lr=0.005,
+                                     weight_decay=0.001)
         if self.pretrained_model:
             self.load_optimizer_params()
 
