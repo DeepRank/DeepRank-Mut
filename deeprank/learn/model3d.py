@@ -88,6 +88,8 @@ class cnn_class(nn.Module):
 
         self.fclayer_000 = nn.Linear(size, 84)
         self.fclayer_001 = nn.Linear(84, 2)
+        
+        self.dropout= nn.Dropout(p=0.3)
 
     def _get_conv_output(self, shape):
         inp = Variable(torch.rand(1, *shape))
@@ -104,6 +106,8 @@ class cnn_class(nn.Module):
     def forward(self, x):
         x = self._forward_features(x)
         x = x.view(x.size(0), -1)
+        x = self.dropout(x)
         x = F.relu(self.fclayer_000(x))
+        x = self.dropout(x)
         x = self.fclayer_001(x)
         return x
