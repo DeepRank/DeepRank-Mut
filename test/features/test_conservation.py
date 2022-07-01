@@ -33,6 +33,10 @@ def test_conservation():
             wildtype_data = feature_group[variant_conservation.WT_FEATURE_NAME][()]
             variant_data = feature_group[variant_conservation.VAR_FEATURE_NAME][()]
 
+            # There should be a whole list of positions and feature values, not just for the C-alpha
+            assert wildtype_data.shape[0] > 1
+            assert wildtype_data.shape[1] == 4
+
             assert wildtype_data[0, 3] == 0.67529296875, "value is {}".format(wildtype_data[0, 3])
             assert variant_data[0, 3] == 0.0
     finally:

@@ -8,7 +8,7 @@ from deeprank.features.FeatureClass import FeatureClass
 from deeprank.operate.pdb import get_pdb_path
 
 
-def _get_c_alpha_pos(pdb_root, variant):
+def _get_atom_positions(pdb_root, variant):
 
     pdb_path = get_pdb_path(pdb_root, variant.pdb_ac)
 
@@ -16,11 +16,11 @@ def _get_c_alpha_pos(pdb_root, variant):
     try:
         if variant.insertion_code is not None:
 
-            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, iCode=variant.insertion_code, name="CA")[0]
+            positions = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, iCode=variant.insertion_code)
         else:
-            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, name="CA")[0]
+            positions = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number)
 
-        return position
+        return positions
     finally:
         db._close()
 
@@ -59,14 +59,18 @@ def __compute_feature__(environment, distance_cutoff, feature_group, variant):
     if numpy.isnan(variant_conservation):
         variant_conservation = 0.0
 
-    # Get the C-alpha position to store the feature with:
-    c_alpha_position = _get_c_alpha_pos(environment.pdb_root, variant)
-    xyz_key = tuple(c_alpha_position)
-
-    # Store features:
     feature_object = FeatureClass("Residue")
-    feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wildtype_conservation]}
-    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {xyz_key: [variant_conservation]}
+    feature_object.feature_data_xyz[WT_FEATURE_NAME] = {}
+    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {}
+
+    # Get the C-alpha position to store the feature with:
+    positions = _get_atom_positions(environment.pdb_root, variant)
+    for position in positions:
+        xyz_key = tuple(position)
+
+        # Store features:
+        feature_object.feature_data_xyz[WT_FEATURE_NAME][xyz_key] = [wildtype_conservation]
+        feature_object.feature_data_xyz[VAR_FEATURE_NAME][xyz_key] = [variant_conservation]
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)

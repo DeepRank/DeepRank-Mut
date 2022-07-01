@@ -28,11 +28,12 @@ def test_feature():
             group = f5.require_group("features")
             __compute_feature__(environment, 10.0, group, variant)
 
+            # There should be a whole list of positions and wt feature values, not jsut for C-alpha
+            ok_(group.get(WT_FEATURE_NAME).shape[0] > 1)
+            ok_(group.get(WT_FEATURE_NAME).shape[1] == 4)
+
             # Check that the features are present on the grid:
-            ok_(len(group.get(WT_FEATURE_NAME)) > 0)
             ok_(len(group.get(VAR_FEATURE_NAME)) > 0)
             ok_(len(group.get(IC_FEATURE_NAME)) > 0)
     finally:
         rmtree(tmp_dir_path)
-
-
