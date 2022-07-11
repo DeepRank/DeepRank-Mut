@@ -100,9 +100,10 @@ class cnn_class(nn.Module):
 
     def _forward_features(self, x):
         x = F.relu(self.convlayer_000(x))
-        x = self.convlayer_001(x)
-        x = F.relu(self.convlayer_002(x))
-        x = self.convlayer_003(x)
+        x = F.relu(self.convlayer_001(x))
+        x = self.convlayer_002(x)
+        x = F.relu(self.convlayer_003(x))
+        x = self.convlayer_004(x)
         return x
 
     def forward(self, x):
