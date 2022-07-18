@@ -5,16 +5,16 @@ from shutil import rmtree
 import h5py
 import numpy
 import torch.optim as optim
-from nose.tools import ok_
+from nose.tools import ok_, eq_
 
-from deeprank.models.variant import PdbVariantSelection
+from deeprank.models.variant import PdbVariantSelection, VariantClass
 from deeprank.generate.DataGenerator import DataGenerator
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.model3d import cnn_class
 from deeprank.models.environment import Environment
 from deeprank.domain.amino_acid import *
-from deeprank.models.metrics import OutputExporter
+from deeprank.models.metrics import OutputExporter, TensorboardBinaryClassificationExporter
 import deeprank.config
 
 
@@ -42,9 +42,16 @@ def test_learn():
     environment = Environment(pdb_root="test/data/pdb", pssm_root="test/data/pssm")
 
     variants = [PdbVariantSelection("101m", "A", 10, valine, cysteine,
-                                    protein_accession="P02144", protein_residue_number=10),
+                                    protein_accession="P02144", protein_residue_number=10,
+                                    variant_class=VariantClass.BENIGN),
                 PdbVariantSelection("101m", "A", 8, glutamine, cysteine,
-                                    protein_accession="P02144")]
+                                    protein_accession="P02144",
+                                    variant_class=VariantClass.PATHOGENIC),
+                PdbVariantSelection("101m", "A", 9, glutamine, cysteine,
+                                    protein_accession="P02144", protein_residue_number=9,
+                                    variant_class=VariantClass.PATHOGENIC)]
+
+    augmentation = 5
 
     work_dir_path = mkdtemp()
     try:
@@ -52,7 +59,8 @@ def test_learn():
 
         # data_augmentation has been set to a high number, so that
         # the train, valid and test set can be large enough.
-        data_generator = DataGenerator(environment, variants, data_augmentation=5,
+        data_generator = DataGenerator(environment, variants,
+                                       data_augmentation=augmentation,
                                        compute_targets=target_modules,
                                        compute_features=feature_modules,
                                        hdf5=hdf5_path)
@@ -66,13 +74,14 @@ def test_learn():
                           select_target='target1',
                           normalize_features=False)
 
-        ok_(len(dataset) > 0)
+        eq_(len(dataset), len(variants) * (augmentation + 1))
         ok_(dataset[0] is not None)
 
         metrics_directory = os.path.join(work_dir_path, "runs")
 
         neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class',
-                               cuda=False, metrics_exporters=[OutputExporter(metrics_directory)])
+                               cuda=False, metrics_exporters=[OutputExporter(metrics_directory),
+                                                              TensorboardBinaryClassificationExporter(metrics_directory)])
 
         neural_net.optimizer = optim.SGD(neural_net.net.parameters(),
                                          lr=0.001,
