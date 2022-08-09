@@ -68,6 +68,8 @@ The generation of the data require only require PDBs files of decoys and their n
 from deeprank.models.variant import *
 from deeprank.generate import *
 from mpi4py import MPI
+from deeprank.domain.amino_acid import isoleucine, valine
+from deeprank.models.environment import Environment
 
 comm = MPI.COMM_WORLD
 
@@ -75,25 +77,16 @@ comm = MPI.COMM_WORLD
 # name of the hdf5 to generate
 hdf5_path = '1ak4.hdf5'
 
-# where to find the native conformation
-pdb_path = "test/1AK4/native/1AK4.pdb"
+environment = Environment(pdb_root="test/1AK4/native",
+                          pssm_root="test/1AK4/pssm")
 
-# The variant data
-chain_id = "C"
-pdb_resnum = 10
-amino_acid = "T"
-
-# where to find the pssm
-pssm_paths = {"C": "test/1AK4/pssm_new/1AK4.C.pssm",
-              "D": "test/1AK4/pssm_new/1AK4.D.pssm"}
-
-variant_class = VariantClass.BENIGN
-
-variant = PdbVariantSelection(pdb_path, chain_id, pdb_resnum, amino_acid, pssm_paths, variant_class)
+variant = PdbVariantSelection("1AK4", "C", 10,
+                              wildtype_amino_acid=isoleucine, variant_amino_acid=valine,
+                              variant_class=VariantClass.BENIGN)
 
 
 # initialize the database
-database = DataGenerator(variants=[variant],
+database = DataGenerator(environment, variants=[variant],
     data_augmentation=10,
     compute_targets=['deeprank.targets.variant_class'],
     compute_features=[

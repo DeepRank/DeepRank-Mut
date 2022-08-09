@@ -147,7 +147,7 @@ class DataGenerator(object):
         Example:
 
         >>> # sources to assemble the data base
-        >>> variant = PdbVariantSelection(pdb_path="1AK4.pdb",
+        >>> variant = PdbVariantSelection(pdb_ac="1AK4",
         >>>                               chain_id="C",
         >>>                               residue_number=10,
         >>>                               amino_acid="T",
@@ -893,7 +893,8 @@ class DataGenerator(object):
 
         if len(c_alpha_positions) == 0:
             raise ValueError("C-alpha of chain {} residue {} not found in {}"
-                             .format(variant.chain_id, variant.residue_number, variant.pdb_path))
+                             .format(variant.chain_id, variant.residue_number, pdb_path))
+
 
         return c_alpha_positions[0]
 

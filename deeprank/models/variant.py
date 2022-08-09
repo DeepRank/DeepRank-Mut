@@ -1,4 +1,7 @@
 from enum import Enum
+from typing import Optional
+
+from deeprank.models.amino_acid import AminoAcid
 
 
 class VariantClass(Enum):
@@ -10,21 +13,23 @@ class PdbVariantSelection:
     """Refers to a variant in a pdb file.
 
     Args:
-        pdb_ac (str): pdb accession code
-        chain_id (str): chain within the pdb file, where the variation is
-        residue_number (int): the identifying number of the residue within the protein chain
-        wildtype_amino_acid (str): one letter code of the wild-type amino acid at this position
-        variant_amino_acid (str): one letter code of the amino acid to place at this position
-        protein_accession (str): protein accession code, used for getting conservations
-        protein_residue_number (int): protein residue number, used for getting conservations
-        variant_class (VariantClass, optional): if known, the expected classification of the variant
-        insertion_code (str): insertion code of the residue, default is None
+        pdb_ac: pdb accession code
+        chain_id: chain within the pdb file, where the variation is
+        residue_number: the identifying number of the residue within the protein chain
+        wildtype_amino_acid: one letter code of the wild-type amino acid at this position
+        variant_amino_acid: one letter code of the amino acid to place at this position
+        enst_accession: ensemble transcript accession code, used for database search
+        protein_accession: protein accession code, used for getting conservations
+        protein_residue_number: protein residue number, used for getting conservations
+        variant_class: if known, the expected classification of the variant
+        insertion_code: insertion code of the residue, default is None
     """
 
-    def __init__(self, pdb_ac, chain_id, residue_number,
-                 wildtype_amino_acid, variant_amino_acid,
-                 protein_accession=None, protein_residue_number=None,
-                 variant_class=None, insertion_code=None):
+    def __init__(self, pdb_ac: str, chain_id: str, residue_number: int,
+                 wildtype_amino_acid: AminoAcid, variant_amino_acid: AminoAcid,
+                 enst_accession: Optional[str] = None,
+                 protein_accession: Optional[str] = None, protein_residue_number: Optional[int] = None,
+                 variant_class: Optional[VariantClass] = None, insertion_code: Optional[str] = None):
 
         self._pdb_ac = pdb_ac
         self._chain_id = chain_id
@@ -32,6 +37,7 @@ class PdbVariantSelection:
         self._insertion_code = insertion_code
         self._wildtype_amino_acid = wildtype_amino_acid
         self._variant_amino_acid = variant_amino_acid
+        self._enst_accession = enst_accession
         self._protein_accession = protein_accession
         self._protein_residue_number = protein_residue_number
         self._variant_class = variant_class
@@ -75,6 +81,10 @@ class PdbVariantSelection:
     @property
     def protein_accession(self):
         return self._protein_accession
+
+    @property
+    def enst_accession(self):
+        return self._enst_accession
 
     @property
     def wild_type_amino_acid(self):

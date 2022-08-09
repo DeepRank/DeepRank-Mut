@@ -39,6 +39,7 @@ arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
 arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
+arg_parser.add_argument("--dbnsfp-path", help="path to the indexed (uncompressed) dbNSFP hdf5 file")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -226,6 +227,7 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
                 variant = PdbVariantSelection(pdb_ac, chain_id, pdb_number,
                                               amino_acids_by_code[wt_amino_acid_code],
                                               amino_acids_by_code[var_amino_acid_code],
+                                              enst_ac,
                                               protein_ac, residue_number,
                                               variant_class, insertion_code)
 
@@ -301,7 +303,7 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, device)
+    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, device)
 
     feature_modules = ["deeprank.features.atomic_contacts",
                        "deeprank.features.accessibility"]
@@ -312,6 +314,9 @@ if __name__ == "__main__":
 
     if args.pssm_root is not None:
         feature_modules.append("deeprank.features.neighbour_profile")
+
+    if args.dbnsfp_path is not None:
+        feature_modules.append("deeprank.features.dbnsfp")
 
     try:
         preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info,

@@ -12,8 +12,8 @@ from deeprank.operate import hdf5data
 
 
 def test_group_name():
-    variant1 = PdbVariantSelection("not/existent/pdb.1", 'A', 111, amino_acids[0], amino_acids[1])
-    variant2 = PdbVariantSelection("not/existent/pdb.2", 'A', 22, amino_acids[0], amino_acids[2])
+    variant1 = PdbVariantSelection("1xxx", 'A', 111, amino_acids[0], amino_acids[1])
+    variant2 = PdbVariantSelection("2xxx", 'A', 22, amino_acids[0], amino_acids[2])
 
     ok_(hdf5data.get_variant_group_name(variant1) != hdf5data.get_variant_group_name(variant2))
     eq_(hdf5data.get_variant_group_name(variant1), hdf5data.get_variant_group_name(variant1))
@@ -21,7 +21,7 @@ def test_group_name():
 
 
 def test_variant():
-    start_variant = PdbVariantSelection("not/existent/pdb", 'A', 111, amino_acids[0], amino_acids[1], variant_class=VariantClass.BENIGN, insertion_code='A')
+    start_variant = PdbVariantSelection("1xxx", 'A', 111, amino_acids[0], amino_acids[1], variant_class=VariantClass.BENIGN, insertion_code='A')
 
     temp_dir_path = mkdtemp()
     try:
