@@ -42,6 +42,9 @@ def store_variant(variant_group, variant):
         variant_group.attrs['variant_protein_accession'] = variant.protein_accession
         variant_group.attrs['variant_protein_residue_number'] = variant.protein_residue_number
 
+    if variant.enst_accession is not None:
+        variant_group.attrs['variant_enst_accession'] = variant.enst_accession
+
 
 def load_variant(variant_group):
     """ Loads the variant from the HDF5 variant group
@@ -76,8 +79,14 @@ def load_variant(variant_group):
     variant_amino_acid = amino_acids_by_name[variant_group.attrs['variant_amino_acid_name']]
     wild_type_amino_acid = amino_acids_by_name[variant_group.attrs['wild_type_amino_acid_name']]
 
+    if 'variant_enst_accession' in variant_group.attrs:
+        enst_accession = variant_group.attrs['variant_enst_accession']
+    else:
+        enst_accession = None
+
     variant = PdbVariantSelection(pdb_ac, chain_id, residue_number, wild_type_amino_acid, variant_amino_acid, insertion_code=insertion_code,
-                                  protein_accession=protein_accession, protein_residue_number=protein_residue_number)
+                                  protein_accession=protein_accession, protein_residue_number=protein_residue_number,
+                                  enst_accession=enst_accession)
 
     return variant
 
