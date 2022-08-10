@@ -71,16 +71,8 @@ class PdbVariantSelection:
         return residue_id
 
     @property
-    def protein_residue_number(self):
-        return self._protein_residue_number
-
-    @property
     def insertion_code(self):
         return self._insertion_code
-
-    @property
-    def protein_accession(self):
-        return self._protein_accession
 
     @property
     def enst_accession(self):
@@ -97,11 +89,6 @@ class PdbVariantSelection:
     @property
     def variant_amino_acid(self):
         return self._variant_amino_acid
-
-
-    @property
-    def protein_residue_number(self):
-        return self._protein_residue_number
 
     def __eq__(self, other):
         return self._pdb_ac == other._pdb_ac and \
