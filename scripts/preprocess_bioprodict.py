@@ -40,6 +40,7 @@ arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
 arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("--dbnsfp-path", help="path to the indexed (uncompressed) dbNSFP hdf5 file")
+arg_parser.add_argument("--gnomAD-path", help="path to the indexed (uncompressed) gnomAD hdf5 file")
 arg_parser.add_argument("out_path", help="the path to the output hdf5 file")
 arg_parser.add_argument("-A", "--data-augmentation", help="the number of data augmentations", type=int, default=5)
 arg_parser.add_argument("-p", "--grid-points", help="the number of points per edge of the 3d grid", type=int, default=20)
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, device)
+    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, args.gnomad_path, device)
 
     feature_modules = ["deeprank.features.atomic_contacts",
                        "deeprank.features.accessibility"]
@@ -317,6 +318,9 @@ if __name__ == "__main__":
 
     if args.dbnsfp_path is not None:
         feature_modules.append("deeprank.features.dbnsfp")
+
+    if args.gnomAD_path is not None:
+        feature_modules.append("deeprank.features.gnomad")
 
     try:
         preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info,
