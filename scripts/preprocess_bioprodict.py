@@ -307,7 +307,7 @@ if __name__ == "__main__":
         device = "cpu"
 
     environment = Environment(args.pdb_root, args.pssm_root,
-                              args.conservation_root, args.dbnsfp_path, args.gnomad_path,
+                              args.conservation_root, args.dbnsfp_path, args.gnomAD_path,
                               device, args.zero_missing_pssm)
 
     feature_modules = ["deeprank.features.atomic_contacts",
