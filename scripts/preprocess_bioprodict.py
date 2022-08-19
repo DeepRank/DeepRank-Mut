@@ -304,7 +304,7 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, args.gnomad_path, device)
+    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, args.gnomAD_path, device)
 
     feature_modules = ["deeprank.features.atomic_contacts",
                        "deeprank.features.accessibility"]
