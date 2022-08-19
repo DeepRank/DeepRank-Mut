@@ -38,7 +38,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
-arg_parser.add_argument("--zero-missing-pssm", help="if a pssm file is missing, set the feature to zero.", type=bool, default=False, const=True)
+arg_parser.add_argument("--zero-missing-pssm", help="if a pssm file is missing, set the feature to zero.", default=False, action="store_true")
 arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("--dbnsfp-path", help="path to the indexed (uncompressed) dbNSFP hdf5 file")
 arg_parser.add_argument("--gnomAD-path", help="path to the indexed (uncompressed) gnomAD hdf5 file")
