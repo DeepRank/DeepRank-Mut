@@ -38,6 +38,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
+arg_parser.add_argument("--zero-missing-pssm", help="if a pssm file is missing, set the feature to zero.", type=bool, default=False, const=True)
 arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("--dbnsfp-path", help="path to the indexed (uncompressed) dbNSFP hdf5 file")
 arg_parser.add_argument("--gnomAD-path", help="path to the indexed (uncompressed) gnomAD hdf5 file")
@@ -164,7 +165,7 @@ def get_variant_data(parq_path):
     return variant_data
 
 
-def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data):
+def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data, zero_missing_pssm):
     """ read the hdf5 file to map variant data to pdb and pssm data
 
         Args:
@@ -218,7 +219,7 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
                 if not pdb_meets_criteria(pdb_root, pdb_ac):
                     continue
 
-                if pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
+                if not zero_missing_pssm and pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
                     continue
 
                 protein_ac = row["protein_accession"]
@@ -293,7 +294,8 @@ if __name__ == "__main__":
 
     _log.debug("getting mappings from {}".format(args.map_path))
 
-    variants = get_mappings(args.map_path, args.pdb_root, args.pssm_root, args.conservation_root, variants_data)
+    variants = get_mappings(args.map_path, args.pdb_root, args.pssm_root, args.conservation_root, variants_data,
+                            args.zero_missing_pssm)
 
     _log.debug("taking subset")
 
@@ -304,7 +306,9 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, args.gnomad_path, device)
+    environment = Environment(args.pdb_root, args.pssm_root,
+                              args.conservation_root, args.dbnsfp_path, args.gnomad_path,
+                              device, args.zero_missing_pssm)
 
     feature_modules = ["deeprank.features.atomic_contacts",
                        "deeprank.features.accessibility"]

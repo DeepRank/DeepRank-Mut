@@ -7,7 +7,8 @@ class Environment:
                  conservation_root=None,
                  dbnsfp_path=None,
                  gnomad_path=None,
-                 device=None):
+                 device=None,
+                 zero_missing_pssm=False):
 
         self.pdb_root = pdb_root
         self.pssm_root = pssm_root
@@ -15,3 +16,4 @@ class Environment:
         self.dbnsfp_path = dbnsfp_path
         self.gnomad_path = gnomad_path
         self.device = device
+        self.zero_missing_pssm = zero_missing_pssm

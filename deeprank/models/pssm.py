@@ -46,6 +46,11 @@ class Pssm:
 
         return new
 
+    def has_residue(self, residue_id):
+        "True if this object has data on the given residue, False if not"
+
+        return residue_id in self._residue_records
+
     def get_probability(self, residue_id, amino_acid_letter):
         """ Get the pssm's probability value of the given amino acid at the given residue position
 

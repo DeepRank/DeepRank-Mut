@@ -23,7 +23,6 @@ def test_feature():
     try:
         hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
 
-
         with h5py.File(hdf5_path, 'w') as f5:
             group = f5.require_group("features")
             __compute_feature__(environment, 10.0, group, variant)
@@ -36,3 +35,23 @@ def test_feature():
         rmtree(tmp_dir_path)
 
 
+def test_zero_missing_pssm():
+    environment = Environment(pdb_root="test/data/pdb",
+                              pssm_root="test/data/pssm",
+                              zero_missing_pssm=True)
+
+    tmp_dir_path = mkdtemp()
+
+    variant = PdbVariantSelection("1EAU", "A", 16, valine, alanine)
+
+    try:
+        hdf5_path = os.path.join(tmp_dir_path, 'test.hdf5')
+
+        with h5py.File(hdf5_path, 'w') as f5:
+            group = f5.require_group("features")
+            __compute_feature__(environment, 10.0, group, variant)
+
+            ok_(len(group.get(WT_FEATURE_NAME)) == 0)
+            ok_(len(group.get(IC_FEATURE_NAME)) == 0)
+    finally:
+        rmtree(tmp_dir_path)

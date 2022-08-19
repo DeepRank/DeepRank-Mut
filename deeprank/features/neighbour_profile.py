@@ -74,7 +74,10 @@ def _get_pssm(chain_ids, variant, environment):
     pssm = Pssm()
     for chain_id in chain_ids:
         if chain_id not in pssm_paths:
-            raise FileNotFoundError("No PSSM for {} chain {} in {}".format(variant.pdb_ac, chain_id, environment.pssm_root))
+            if environment.zero_missing_pssm:
+                continue
+            else:
+                raise FileNotFoundError("No PSSM for {} chain {} in {}".format(variant.pdb_ac, chain_id, environment.pssm_root))
 
         with open(pssm_paths[chain_id], 'rt', encoding='utf_8') as f:
             pssm.merge_with(parse_pssm(f, chain_id))
@@ -95,23 +98,28 @@ def __compute_feature__(environment, distance_cutoff, feature_group, variant):
 
     # Initialize a feature object:
     feature_object = FeatureClass("Residue")
+    feature_object.feature_data_xyz[WT_FEATURE_NAME] = {}
+    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {}
+    feature_object.feature_data_xyz[IC_FEATURE_NAME] = {}
 
     # Get variant probability features and place them at the C-alpha xyz position:
     c_alpha_position = get_c_alpha_pos(environment, variant)
     residue_id = Residue(variant.residue_number, variant.wildtype_amino_acid, variant.chain_id)
-    wild_type_probability = pssm.get_probability(residue_id, variant.wild_type_amino_acid.code)
-    variant_probability = pssm.get_probability(residue_id, variant.variant_amino_acid.code)
-    xyz_key = tuple(c_alpha_position)
 
-    feature_object.feature_data_xyz[WT_FEATURE_NAME] = {xyz_key: [wild_type_probability]}
-    feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {xyz_key: [variant_probability]}
+    if pssm.has_residue(residue_id):
+        wild_type_probability = pssm.get_probability(residue_id, variant.wild_type_amino_acid.code)
+        variant_probability = pssm.get_probability(residue_id, variant.variant_amino_acid.code)
+        xyz_key = tuple(c_alpha_position)
+
+        feature_object.feature_data_xyz[WT_FEATURE_NAME][xyz_key] = [wild_type_probability]
+        feature_object.feature_data_xyz[VAR_FEATURE_NAME][xyz_key] = [variant_probability]
 
     # For each neighbouring C-alpha, get the residue's PSSM features:
-    feature_object.feature_data_xyz[IC_FEATURE_NAME] = {}
     for atom in neighbour_c_alphas:
-        xyz_key = tuple(atom.position)
+        if pssm.has_residue(atom.residue):
+            xyz_key = tuple(atom.position)
 
-        feature_object.feature_data_xyz[IC_FEATURE_NAME][xyz_key] = [pssm.get_information_content(atom.residue)]
+            feature_object.feature_data_xyz[IC_FEATURE_NAME][xyz_key] = [pssm.get_information_content(atom.residue)]
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
