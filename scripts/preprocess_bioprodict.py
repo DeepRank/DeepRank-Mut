@@ -103,7 +103,7 @@ def pdb_meets_criteria(pdb_root: str, pdb_ac: str) -> bool:
 
 def has_dssp(dssp_root: str, pdb_ac: str) -> bool:
 
-    path = os.path.join(dssp_root, f"{pdb_ac}.dssp")
+    path = os.path.join(dssp_root, f"{pdb_ac.lower()}.dssp")
 
     return os.path.isfile(path)
 
@@ -242,6 +242,7 @@ def get_mappings(hdf5_path: str,
                     continue
 
                 if dssp_root is not None and not has_dssp(dssp_root, pdb_ac):
+                    _log.warning(f"no dssp for {pdb_ac}")
                     continue
 
                 protein_ac = row["protein_accession"]
@@ -329,7 +330,7 @@ if __name__ == "__main__":
 
     environment = Environment(pdb_root=args.pdb_root,
                               pssm_root=args.pssm_root,
-                              dssp_root=dssp_root,
+                              dssp_root=args.dssp_root,
                               conservation_root=args.conservation_root,
                               dbnsfp_path=args.dbnsfp_path,
                               gnomad_path=args.gnomAD_path,
@@ -358,5 +359,5 @@ if __name__ == "__main__":
         preprocess(environment, variants, args.out_path, args.data_augmentation, grid_info,
                    feature_modules, target_modules)
     except:
-        logger.error(traceback.format_exc())
+        logger.exception("during preprocessing")
         raise

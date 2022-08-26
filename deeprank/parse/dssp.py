@@ -31,6 +31,8 @@ def parse_dssp(path: str) -> Dict[Residue, SecondaryStructure]:
 
             elif header_found and len(line.strip()) > 0:
                 residue_id = line[5: 11]
+                if len(residue_id.strip()) == 0:
+                    continue  # skip chain breaks
 
                 if residue_id[-1].isalpha():
                     insertion_code = residue_id[-1]

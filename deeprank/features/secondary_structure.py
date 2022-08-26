@@ -66,7 +66,12 @@ def __compute_feature__(environment: Environment, distance_cutoff: float, featur
     for atom in atoms:
         xyz_key = tuple(atom.position)
 
-        feature_object.feature_data_xyz[SECONDARY_STRUCTURE_FEATURE_NAME][xyz_key] = dssp[atom.residue].one_hot()
+        if atom.residue not in dssp:
+            continue  # a residue can be missing in dssp, if the backbone is incomplete
+
+        secondary_structure = dssp[atom.residue]
+
+        feature_object.feature_data_xyz[SECONDARY_STRUCTURE_FEATURE_NAME][xyz_key] = secondary_structure.one_hot()
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
