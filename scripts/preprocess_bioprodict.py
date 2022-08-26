@@ -11,6 +11,7 @@ from glob import glob
 import traceback
 from time import time
 import torch.cuda
+from typing import Dict, Set, Optional
 
 import numpy
 import pandas
@@ -38,6 +39,7 @@ arg_parser.add_argument("variant_path", help="the path to the (dataset) variant 
 arg_parser.add_argument("map_path", help="the path to the (dataset) mapping hdf5 file")
 arg_parser.add_argument("pdb_root", help="the path to the pdb root directory")
 arg_parser.add_argument("--pssm-root", help="the path to the pssm root directory, containing files generated with PSSMgen")
+arg_parser.add_argument("--dssp-root", help="the path to the dssp root directory, containing files in the DSSP 2.0 format")
 arg_parser.add_argument("--conservation-root", help="the path to the conservations root directory, containing conservation files per protein")
 arg_parser.add_argument("--dbnsfp-path", help="path to the indexed (uncompressed) dbNSFP hdf5 file")
 arg_parser.add_argument("--gnomAD-path", help="path to the indexed (uncompressed) gnomAD hdf5 file")
@@ -76,7 +78,8 @@ def preprocess(environment, variants, hdf5_path, data_augmentation, grid_info,
     data_generator.map_features(grid_info)
 
 
-def pdb_meets_criteria(pdb_root, pdb_ac):
+def pdb_meets_criteria(pdb_root: str, pdb_ac: str) -> bool:
+
     "a set of criteria that every pdb entry should meet"
 
     pdb_paths = glob(os.path.join(pdb_root, "*{}.*".format(pdb_ac.lower()))) + \
@@ -98,7 +101,16 @@ def pdb_meets_criteria(pdb_root, pdb_ac):
     return True
 
 
-def has_pssm(pssm_root, pdb_ac):
+def has_dssp(dssp_root: str, pdb_ac: str) -> bool:
+
+    path = os.path.join(dssp_root, f"{pdb_ac}.dssp")
+
+    return os.path.isfile(path)
+
+
+
+def has_pssm(pssm_root: str, pdb_ac: str) -> bool:
+
     paths = glob(os.path.join(pssm_root, "{}/pssm/{}.?.pdb.pssm".format(pdb_ac.lower(), pdb_ac.lower())))
 
     if len(paths) == 0:
@@ -108,7 +120,7 @@ def has_pssm(pssm_root, pdb_ac):
     return True
 
 
-def has_conservation(conservation_root, protein_ac):
+def has_conservation(conservation_root: str, protein_ac: str) -> bool:
     paths = [os.path.join(conservation_root, "{}.parq".format(protein_ac)),
              os.path.join(conservation_root, "{}.PARQ".format(protein_ac))]
 
@@ -130,7 +142,8 @@ _PDB_AC_COLUMN = "pdb_structure"
 _PDB_NUMBER_COLUMN = "pdbnumber"
 
 
-def get_variant_data(parq_path):
+def get_variant_data(parq_path: str) -> Dict[str, VariantClass]:
+
     """ extracts variant names and truth values(classes from a parquet file)
 
         Args:
@@ -164,17 +177,24 @@ def get_variant_data(parq_path):
     return variant_data
 
 
-def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data):
+def get_mappings(hdf5_path: str,
+                 pdb_root: str,
+                 dssp_root: Optional[str],
+                 pssm_root: Optional[str],
+                 conservation_root: Optional[str],
+                 variant_data: Dict[str, VariantClass]) -> Set[PdbVariantSelection]:
+
     """ read the hdf5 file to map variant data to pdb and pssm data
 
         Args:
-            hdf5_path(str): path to an hdf5 file, containing a table named "mappings"
-            pdb_root(str): path to the directory where pdbs are stored
-            pssm_root(str or None): path to the directory where pssms are stored
+            hdf5_path: path to an hdf5 file, containing a table named "mappings"
+            pdb_root: path to the directory where pdbs are stored
+            dssp_root: path to the directory where dssps are stored
+            pssm_root: path to the directory where pssms are stored
             conservation_root(str or None): path to the directory where conservation parquet tables are stored
-            variant_data (dict(str, VariantClass): the variant names and classes
+            variant_data: the variant names and classes
 
-        Returns (set(PdbVariantSelection)): the variant objects that deeprank will use
+        Returns: the variant objects that deeprank will use
     """
 
     amino_acids_by_code = {amino_acid.code: amino_acid for amino_acid in amino_acids}
@@ -219,6 +239,9 @@ def get_mappings(hdf5_path, pdb_root, pssm_root, conservation_root, variant_data
                     continue
 
                 if pssm_root is not None and not has_pssm(pssm_root, pdb_ac):
+                    continue
+
+                if dssp_root is not None and not has_dssp(dssp_root, pdb_ac):
                     continue
 
                 protein_ac = row["protein_accession"]
@@ -293,7 +316,7 @@ if __name__ == "__main__":
 
     _log.debug("getting mappings from {}".format(args.map_path))
 
-    variants = get_mappings(args.map_path, args.pdb_root, args.pssm_root, args.conservation_root, variants_data)
+    variants = get_mappings(args.map_path, args.pdb_root, args.dssp_root, args.pssm_root, args.conservation_root, variants_data)
 
     _log.debug("taking subset")
 
@@ -304,11 +327,20 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    environment = Environment(args.pdb_root, args.pssm_root, args.conservation_root, args.dbnsfp_path, args.gnomAD_path, device)
+    environment = Environment(pdb_root=args.pdb_root,
+                              pssm_root=args.pssm_root,
+                              dssp_root=dssp_root,
+                              conservation_root=args.conservation_root,
+                              dbnsfp_path=args.dbnsfp_path,
+                              gnomad_path=args.gnomAD_path,
+                              device=device)
 
     feature_modules = ["deeprank.features.atomic_contacts",
                        "deeprank.features.accessibility"]
     target_modules = ["deeprank.targets.variant_class"]
+
+    if args.dssp_root is not None:
+        feature_modules.append("deeprank.features.secondary_structure")
 
     if args.conservation_root is not None:
         feature_modules.append("deeprank.features.variant_conservation")
