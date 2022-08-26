@@ -10,10 +10,9 @@ class SecondaryStructure(Enum):
 
     def one_hot(self):
         if self == SecondaryStructure.HELIX:
-            return numpy.array([1, 0])
+            return [1, 0]
 
         elif self == SecondaryStructure.STRAND:
-            return numpy.array([0, 1])
+            return [0, 1]
 
-        else:
-            return numpy.array([0, 0])
+        return [0, 0]

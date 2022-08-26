@@ -6,6 +6,8 @@ from deeprank.domain.amino_acid import amino_acids, cysteine
 
 
 def _is_dssp_header(line: str) -> bool:
+    #  RESIDUE AA STRUCTURE BP1 BP2  ACC     N-H-->O    O-->H-N    N-H-->O    O-->H-N    TCO  KAPPA ALPHA  PHI   PSI    X-CA   Y-CA   Z-CA
+
     if line is None:
         return False
 
@@ -13,6 +15,7 @@ def _is_dssp_header(line: str) -> bool:
 
 
 def parse_dssp(path: str) -> Dict[Residue, SecondaryStructure]:
+    "parse one dssp file and return the secondary structure by residue"
 
     amino_acids_by_letter = {amino_acid.letter: amino_acid for amino_acid in amino_acids}
 
