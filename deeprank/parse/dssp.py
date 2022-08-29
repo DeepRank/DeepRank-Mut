@@ -46,6 +46,9 @@ def parse_dssp(path: str) -> Dict[Residue, SecondaryStructure]:
                 amino_acid_letter = line[13]
                 if amino_acid_letter.islower():
                     amino_acid = cysteine
+
+                elif amino_acid_letter == "X":
+                    amino_acid = None
                 else:
                     amino_acid = amino_acids_by_letter[amino_acid_letter]
 
