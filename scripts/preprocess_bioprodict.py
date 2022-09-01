@@ -201,7 +201,7 @@ def get_mappings(hdf5_path: str,
 
     _log.debug("reading {} mappings table".format(hdf5_path))
 
-    max_mappings_per_variant = 3
+    max_mappings_per_variant = 2
     variant_mappings_counts = {variant_name: 0 for variant_name in variant_data}
 
     variants = set([])
