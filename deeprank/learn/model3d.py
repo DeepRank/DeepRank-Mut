@@ -84,7 +84,6 @@ class cnn_class(nn.Module):
         self.convlayer_001 = nn.Conv3d(4, 4, kernel_size=2)
         self.convlayer_002 = nn.MaxPool3d((2, 2, 2))
         self.convlayer_003 = nn.Conv3d(4, 5, kernel_size=2)
-        self.convlayer_004 = nn.MaxPool3d((2, 2, 2))
 
         size = self._get_conv_output(input_shape)
 
@@ -103,7 +102,6 @@ class cnn_class(nn.Module):
         x = F.relu(self.convlayer_001(x))
         x = self.convlayer_002(x)
         x = F.relu(self.convlayer_003(x))
-        x = self.convlayer_004(x)
         return x
 
     def forward(self, x):
