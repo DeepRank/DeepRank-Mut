@@ -1,7 +1,7 @@
 
 
 class Atom:
-    def __init__(self, id_, position, chain_id, name, element, residue=None, altloc=None, occupancy=None):
+    def __init__(self, id_, position, chain_id, name, element, residue=None, altloc=None, occupancy=None, b_factor=None):
         self.id = id_
         self.name = name
         self.element = element
@@ -10,6 +10,7 @@ class Atom:
         self.residue = residue
         self.altloc = altloc
         self.occupancy = occupancy
+        self.b_factor = b_factor
 
     def __hash__(self):
         return hash(self.id)

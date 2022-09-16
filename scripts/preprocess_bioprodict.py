@@ -337,6 +337,7 @@ if __name__ == "__main__":
                               device=device)
 
     feature_modules = ["deeprank.features.atomic_contacts",
+                       "deeprank.features.residue_properties",
                        "deeprank.features.accessibility"]
     target_modules = ["deeprank.targets.variant_class"]
 

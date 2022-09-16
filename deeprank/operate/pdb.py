@@ -56,12 +56,12 @@ def get_atoms(pdb2sql):
     atoms = {}
 
     # Iterate over the atom output from pdb2sql, select atoms with highest occupancy.
-    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode,altLoc,occ"
+    request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode,altLoc,occ,temp"
     highest_occupancies = {}
     for row in pdb2sql.get(request_s):
 
         try:
-            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code, altloc, occ = row
+            x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code, altloc, occ, b_factor = row
         except:
             raise ValueError("Got unexpected row {} for {}".format(row, request_s))
 
@@ -87,7 +87,7 @@ def get_atoms(pdb2sql):
                 continue
 
         # otherwise, overwrite..
-        atoms[atom_id] = Atom(atom_number, atom_position, chain_id, atom_name, element, residues[residue_id], altloc, occ)
+        atoms[atom_id] = Atom(atom_number, atom_position, chain_id, atom_name, element, residues[residue_id], altloc, occ, b_factor)
         highest_occupancies[atom_id] = occ
 
     # Link atoms to residues:
