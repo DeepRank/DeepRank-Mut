@@ -10,14 +10,14 @@ def get_labels_from_output(output_data: torch.Tensor,
     """
     Args:
         output_data: [x, 2] considered BENIGN if left value > right value and otherwise PATHOGENIC
-        unknown_treshold: if the values are both below this value, then consider the class UNKNOWN
+        unknown_treshold: if the absolute difference between the values is below this value, then consider the class UNKNOWN
     """
 
     total = output_data.shape[0]
 
     labels = []
     for index in range(total):
-        if output_data[index, 0] < unknown_treshold and output_data[index, 1] < unknown_treshold:
+        if abs(output_data[index, 0] - output_data[index, 1]) < unknown_treshold:
             label = VariantClass.UNKNOWN
 
         elif output_data[index, 0] < output_data[index, 1]:

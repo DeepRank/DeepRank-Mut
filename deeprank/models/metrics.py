@@ -59,7 +59,7 @@ class TensorboardVariantClassificationExporter(MetricsExporter):
         """
         Args:
             directory_path: where to store tensorboard files
-            unknown_treshold: if both class probabilities are below this value, give the class label UNKNOWN
+            unknown_treshold: if the absolute difference between the class probabilities is below this value, give the class label UNKNOWN
         """
 
         self._directory_path = directory_path
