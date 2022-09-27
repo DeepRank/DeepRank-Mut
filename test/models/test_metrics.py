@@ -2,7 +2,7 @@ import tempfile
 import shutil
 import os
 
-from deeprank.models.metrics import TensorboardBinaryClassificationExporter, OutputExporter
+from deeprank.models.metrics import TensorboardVariantClassificationExporter, OutputExporter
 
 
 test_entries = ["entry0", "entry1"]
@@ -14,7 +14,7 @@ def test_tensorboard_class_output():
 
     tmp_dir_path = tempfile.mkdtemp()
     try:
-        exporter = TensorboardBinaryClassificationExporter(tmp_dir_path)
+        exporter = TensorboardVariantClassificationExporter(tmp_dir_path)
 
         with exporter:
             exporter.process("unit-testing", 0, test_entries, test_outputs, test_targets)

@@ -14,7 +14,7 @@ from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.DataSet import DataSet
 from deeprank.learn.model3d import cnn_class
 from deeprank.models.metrics import OutputExporter
-from deeprank.models.metrics import TensorboardBinaryClassificationExporter
+from deeprank.models.metrics import TensorboardVariantClassificationExporter
 
 
 logging.basicConfig(filename="learn-%d.log" % os.getpid(), filemode="w", level=logging.INFO)
@@ -80,6 +80,6 @@ if __name__ == "__main__":
 
     neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class', cuda=False,
                            metrics_exporters=[OutputExporter(run_directory),
-                                              TensorboardBinaryClassificationExporter(run_directory)])
+                                              TensorboardVariantClassificationExporter(run_directory)])
     neural_net.optimizer = optim.AdamW(neural_net.net.parameters(), lr=0.001, weight_decay=0.005)
     neural_net.train(nepoch = epoch_count, divide_trainset=None, train_batch_size = 5, num_workers=0)
