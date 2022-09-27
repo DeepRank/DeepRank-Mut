@@ -5,6 +5,7 @@ from deeprank.models.amino_acid import AminoAcid
 
 
 class VariantClass(Enum):
+    UNKNOWN = -1
     BENIGN = 0
     PATHOGENIC = 1
 
