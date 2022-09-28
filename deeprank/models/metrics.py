@@ -163,3 +163,37 @@ class OutputExporter(MetricsExporter):
                 target_value = target_values[entry_index]
 
                 w.writerow([entry_name, str(output_value), str(target_value)])
+
+
+class LabelExporter(MetricsExporter):
+    "writes all labels to a table"
+
+    def __init__(self, directory_path, unknown_treshold: Optional[float] = 0.5):
+        self._directory_path = directory_path
+        self._unknown_treshold = unknown_treshold
+
+    def get_filename(self, pass_name, epoch_number):
+        "returns the filename for the table"
+        return os.path.join(self._directory_path, f"labels-{pass_name}-epoch-{epoch_number}.csv.xz")
+
+    def process(self, pass_name: str, epoch_number: int,
+                entry_names: List[str], output_values: List[Any], target_values: List[Any]):
+        "write the output to the table"
+
+        # lists of VariantClass values
+        output_labels = get_labels_from_output(tensor(output_values), unknown_treshold=self._unknown_treshold)
+        target_labels = get_labels_from_targets(tensor(target_values))
+
+        if not os.path.isdir(self._directory_path):
+            os.mkdir(self._directory_path)
+
+        with lzma.open(self.get_filename(pass_name, epoch_number), 'wt') as f:
+            w = csv.writer(f)
+
+            w.writerow(["entry", "output_label", "target_label"])
+
+            for entry_index, entry_name in enumerate(entry_names):
+                output_label = output_labels[entry_index]
+                target_label = target_labels[entry_index]
+
+                w.writerow([entry_name, output_label, target_label])
