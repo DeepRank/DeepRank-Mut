@@ -14,7 +14,7 @@ from deeprank.learn.NeuralNet import NeuralNet
 from deeprank.learn.model3d import cnn_class
 from deeprank.models.environment import Environment
 from deeprank.domain.amino_acid import *
-from deeprank.models.metrics import OutputExporter, TensorboardBinaryClassificationExporter
+from deeprank.models.metrics import OutputExporter, TensorboardVariantClassificationExporter
 import deeprank.config
 
 
@@ -81,7 +81,7 @@ def test_learn():
 
         neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class',
                                cuda=False, metrics_exporters=[OutputExporter(metrics_directory),
-                                                              TensorboardBinaryClassificationExporter(metrics_directory)])
+                                                              TensorboardVariantClassificationExporter(metrics_directory)])
 
         neural_net.optimizer = optim.SGD(neural_net.net.parameters(),
                                          lr=0.001,

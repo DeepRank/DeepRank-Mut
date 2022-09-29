@@ -1,74 +1,51 @@
-from math import sqrt
+from typing import List, Optional
+
+import torch
+
+from deeprank.models.variant import VariantClass
 
 
-def get_tp_tn_fp_fn(output_data, target_data):
-    """ A classification metric
-
-    Args:
-        output_data(array of dimension (x,2)): considered negative if left value > right value
-        target_data(array of dimension (x,1)): considered negative if 0, positive otherewise
-
-    Returns (four floats):
-        true positive count (tp)
-        true negative count (tn)
-        false positive count (fp)
-        false negative count (fn)
+def get_labels_from_output(output_data: torch.Tensor,
+                           unknown_treshold: Optional[float] = 0.5) -> List[VariantClass]:
     """
-
-    tp = 0
-    tn = 0
-    fp = 0
-    fn = 0
+    Args:
+        output_data: [x, 2] considered BENIGN if left value > right value and otherwise PATHOGENIC
+        unknown_treshold: if the absolute difference between the values is below this value, then consider the class UNKNOWN
+    """
 
     total = output_data.shape[0]
-    if total == 0:
-        raise ValueError("0 output data entries")
 
+    labels = []
     for index in range(total):
-        output0, output1 = output_data[index,:]
-        target = target_data[index]
+        if abs(output_data[index, 0] - output_data[index, 1]) < unknown_treshold:
+            label = VariantClass.UNKNOWN
 
-        if output0 > output1:  # negative output
+        elif output_data[index, 0] < output_data[index, 1]:
+            label = VariantClass.PATHOGENIC
 
-            if target != 0:  # wrong
+        else:
+            label = VariantClass.BENIGN
 
-                fn += 1
+        labels.append(label)
 
-            else:  # right
-
-                tn += 1
-
-        else:  # positive output
-
-            if target != 0:  # right
-
-                tp += 1
-
-            else:  # wrong
-
-                fp += 1
-
-    return tp, tn, fp, fn
+    return labels
 
 
-def get_mcc(tp, tn, fp, fn):
-    """ The Mathews Correlation Coefficient
-
+def get_labels_from_targets(target_data: torch.Tensor) -> List[VariantClass]:
+    """
     Args:
-        tp (float): true positive count
-        tn (float): true negative count
-        fp (float): false positive count
-        fn (float): false negative count
-
-    Returns (float): Mathews Correlation Coefficient
+        target_data: [x, 1] where 0 means BENIGN and 1 means PATHOGENIC
     """
 
-    numerator = tp * tn - fp * fn
-    if numerator == 0:
-        return 0.0
+    total = target_data.shape[0]
 
-    denominator = sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
-    if denominator == 0:
-        raise ValueError(f"MCC denominator is zero for tp={tp}, tn={tn}, fp={fp}, fn={fn}")
+    labels = []
+    for index in range(total):
+        if target_data[index] > 0:
+            label = VariantClass.PATHOGENIC
+        else:
+            label = VariantClass.BENIGN
 
-    return numerator / denominator
+        labels.append(label)
+
+    return labels
