@@ -193,7 +193,7 @@ class LabelExporter(MetricsExporter):
             w.writerow(["entry", "output_label", "target_label"])
 
             for entry_index, entry_name in enumerate(entry_names):
-                output_label = output_labels[entry_index]
-                target_label = target_labels[entry_index]
+                output_name = output_labels[entry_index].name
+                target_name = target_labels[entry_index].name
 
-                w.writerow([entry_name, output_label, target_label])
+                w.writerow([entry_name, output_name, target_name])
