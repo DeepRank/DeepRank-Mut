@@ -43,7 +43,7 @@ def get_c_alpha_pos(environment, variant):
     db = pdb2sql(pdb_path)
     try:
         if variant.insertion_code is not None:
-            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, iCode=variant, name="CA")[0]
+            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, iCode=variant.insertion_code, name="CA")[0]
         else:
             position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, name="CA")[0]
 
