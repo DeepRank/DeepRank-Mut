@@ -666,6 +666,7 @@ class NeuralNet():
 
         entry_names = []
         output_values = []
+        output_probs = []
         target_values = []
 
         for batch_index, batch in enumerate(data_loader):
@@ -707,8 +708,10 @@ class NeuralNet():
 
             output_values += outputs.tolist()
             target_values += targets.tolist()
+            
+            output_probs = F.softmax(torch.FloatTensor(output_values), dim=0).tolist()
 
-        self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
+        self._metrics_output.process(pass_name, epoch_number, entry_names, output_probs, target_values)
 
         if count_data_entries > 0:
             epoch_loss = sum_of_losses / count_data_entries
