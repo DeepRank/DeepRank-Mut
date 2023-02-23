@@ -2,7 +2,9 @@ import logging
 from pdb2sql import pdb2sql
 import re
 import os
+from typing import List
 
+import h5py
 from scipy.spatial import distance_matrix
 import numpy
 import torch
@@ -14,6 +16,12 @@ from deeprank.models.pair import Pair
 from deeprank.operate.pdb import get_atoms, get_pdb_path, get_residue_contact_atom_pairs
 from deeprank.features.FeatureClass import FeatureClass
 from deeprank.domain.forcefield import atomic_forcefield
+from deeprank.models.variant import PdbVariantSelection
+from deeprank.models.environment import Environment
+from deeprank.models.atom import Atom
+
+
+_log = logging.getLogger(__name__)
 
 
 EPSILON0 = 1.0
@@ -25,6 +33,7 @@ VANDERWAALS_DISTANCE_ON = 6.5
 SQUARED_VANDERWAALS_DISTANCE_OFF = numpy.square(VANDERWAALS_DISTANCE_OFF)
 SQUARED_VANDERWAALS_DISTANCE_ON = numpy.square(VANDERWAALS_DISTANCE_ON)
 
+MAX_BOND_DISTANCE = 2.1
 
 COULOMB_FEATURE_NAME = "coulomb"
 VANDERWAALS_FEATURE_NAME = "vdwaals"
@@ -40,148 +49,168 @@ def _store_features(feature_group_xyz, feature_name, atoms, values):
     # We're currently not doing anything with the raw features.
 
 
-def __compute_feature__(environment, max_interatomic_distance, feature_group, variant):
+def _get_atoms_around_variant(environment: Environment, variant: PdbVariantSelection) -> List[Atom]:
+
+    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+
+    pdb = pdb2sql(pdb_path)
+
+    try:
+        atoms = set([])
+        for atom1, atom2 in get_residue_contact_atom_pairs(pdb,
+                                                           variant.chain_id,
+                                                           variant.residue_number,
+                                                           variant.insertion_code,
+                                                           10.0):
+
+            for atom in (atom1.residue.atoms + atom2.residue.atoms):
+                atoms.add(atom)
+
+        atoms = list(atoms)
+    finally:
+        pdb._close()
+
+    return atoms
+
+
+def _select_matrix_subset(matrix: torch.Tensor,
+                          index_row: torch.Tensor,
+                          index_col: torch.Tensor):
+
+    return matrix[index_row][..., index_col]
+
+
+def __compute_feature__(environment: Environment,
+                        max_interatomic_distance: float,
+                        feature_group: h5py.Group,
+                        variant: PdbVariantSelection):
     """
         For all atoms surrounding the variant, calculate vanderwaals, coulomb and charge features.
         This uses torch for fast computation. The downside of this is that we cannot use python objects.
 
         Args:
-            environment (Environment): the environment settings
-            max_interatomic_distance (float): max distance (Å) from variant to include atoms
-            feature_group (h5py.Group): where the features should go
-            variant (PdbVariantSelection): the variant
+            max_interatomic_distance: max distance (Å) from variant to include atoms
+            feature_group: where the features should go
     """
 
-    feature_object = FeatureClass("Atomic")
+    atoms = _get_atoms_around_variant(environment, variant)
 
-    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+    # Determine which atoms are the variant and which are surroundings.
+    variant_indexes = []
+    surrounding_indexes = []
+    variant_atoms = []
+    surrounding_atoms = []
+    positions = []
+    for index, atom in enumerate(atoms):
 
-    # get the atoms from the pdb
-    pdb = pdb2sql(pdb_path)
-    try:
-        atoms = set([])
-        for atom1, atom2 in get_residue_contact_atom_pairs(pdb, variant.chain_id, variant.residue_number, variant.insertion_code, 10.0):
-            for atom in (atom1.residue.atoms + atom2.residue.atoms):
-                atoms.add(atom)
-        atoms = list(atoms)
-    finally:
-        pdb._close()
+        positions.append(atom.position)
 
-    count_atoms = len(atoms)
-    atom_positions = numpy.array([atom.position for atom in atoms])
-    atoms_in_variant = numpy.array([atom.residue.number == variant.residue_number and
-                                    atom.chain_id == variant.chain_id and
-                                    atom.residue.insertion_code == variant.insertion_code for atom in atoms])
+        if atom.residue.number == variant.residue_number and \
+           atom.chain_id == variant.chain_id and \
+           atom.residue.insertion_code == variant.insertion_code:
 
-    # calculate euclidean distances
-    atom_distance_matrix = distance_matrix(atom_positions, atom_positions)
-
-    # select pairs that are close enough
-    neighbour_matrix = atom_distance_matrix < max_interatomic_distance
-
-    # select pairs of which only one of the atoms is from the variant residue
-    atoms_in_variant_matrix = numpy.resize(atoms_in_variant, (count_atoms, count_atoms))
-    atoms_in_variant_matrix = numpy.logical_xor(atoms_in_variant_matrix,
-                                                numpy.transpose(atoms_in_variant_matrix))
-    variant_neighbour_matrix = numpy.logical_and(atoms_in_variant_matrix, neighbour_matrix)
-
-    # extend contacts from just atoms to entire residues.
-    # (slow)
-    other_atoms_involved = set([])
-    atom_index_lookup = {atom: index for index, atom in enumerate(atoms)}
-    for index0, index1 in numpy.transpose(numpy.nonzero(variant_neighbour_matrix)):
-        for other_atom in atoms[index0].residue.atoms:
-            other_index = atom_index_lookup[other_atom]
-            if index0 != other_index:
-                variant_neighbour_matrix[index0, other_index] = True
-        for other_atom in atoms[index1].residue.atoms:
-            other_index = atom_index_lookup[other_atom]
-            if index1 != other_index:
-                variant_neighbour_matrix[index1, other_index] = True
-
-    # fetch the parameters for every pair of atoms
-    epsilon0_list = []
-    epsilon1_list = []
-    sigma0_list = []
-    sigma1_list = []
-    charges0_list = []
-    charges1_list = []
-    distances_list = []
-    atom_pair_indices = numpy.transpose(numpy.nonzero(variant_neighbour_matrix))
-    charges_per_atom = torch.zeros(count_atoms).to(environment.device)
-    for index0, index1 in atom_pair_indices:
-        atom0 = atoms[index0]
-        atom1 = atoms[index1]
-
-        vanderwaals_parameters0 = atomic_forcefield.get_vanderwaals_parameters(atom0)
-        vanderwaals_parameters1 = atomic_forcefield.get_vanderwaals_parameters(atom1)
-
-        # Either intermolecular or intramolecular
-        if atom0.chain_id != atom1.chain_id:
-
-            epsilon0_list.append(vanderwaals_parameters0.inter_epsilon)
-            epsilon1_list.append(vanderwaals_parameters1.inter_epsilon)
-            sigma0_list.append(vanderwaals_parameters0.inter_sigma)
-            sigma1_list.append(vanderwaals_parameters1.inter_sigma)
+            variant_indexes.append(index)
+            variant_atoms.append(atom)
         else:
-            epsilon0_list.append(vanderwaals_parameters0.intra_epsilon)
-            epsilon1_list.append(vanderwaals_parameters1.intra_epsilon)
-            sigma0_list.append(vanderwaals_parameters0.intra_sigma)
-            sigma1_list.append(vanderwaals_parameters1.intra_sigma)
+            surrounding_atoms.append(atom)
+            surrounding_indexes.append(index)
+    assert len(variant_indexes) > 0
+    assert len(surrounding_indexes) > 0
+    variant_indexes = torch.tensor(variant_indexes).to(environment.device)
+    surrounding_indexes = torch.tensor(surrounding_indexes).to(environment.device)
 
-        charges_per_atom[index0] = atomic_forcefield.get_charge(atom0)
-        charges0_list.append(charges_per_atom[index0])
-        charges_per_atom[index1] = atomic_forcefield.get_charge(atom1)
-        charges1_list.append(charges_per_atom[index1])
+    positions = torch.tensor(positions).to(environment.device)
+    distance_matrix = torch.cdist(positions, positions, p=2)
+    focus_distances = _select_matrix_subset(distance_matrix, variant_indexes, surrounding_indexes)
 
-        distances_list.append(atom_distance_matrix[index0, index1])
+    # get charges
+    charges = torch.tensor([atomic_forcefield.get_charge(atom)
+                            for atom in atoms]).to(environment.device)
 
-    _store_features(feature_group, CHARGE_FEATURE_NAME, atoms, charges_per_atom)
+    _store_features(feature_group, CHARGE_FEATURE_NAME, atoms, charges)
 
-    # convert the parameter lists to tensors
-    epsilons0 = torch.tensor(epsilon0_list).to(environment.device)
-    epsilons1 = torch.tensor(epsilon1_list).to(environment.device)
-    sigmas0 = torch.tensor(sigma0_list).to(environment.device)
-    sigmas1 = torch.tensor(sigma1_list).to(environment.device)
-    charges0 = torch.tensor(charges0_list).to(environment.device)
-    charges1 = torch.tensor(charges1_list).to(environment.device)
-    distances = torch.tensor(distances_list).to(environment.device)
-    squared_distances = torch.square(distances)
-    count_pairs = len(atom_pair_indices)
-    atom_pair_indices = torch.tensor(atom_pair_indices)
+    # calculate coulomb
+    cutoff_distance = 8.5
+    coulomb_cutoff = torch.square(torch.ones(focus_distances.shape).to(environment.device) - torch.square(focus_distances / cutoff_distance))
+    coulomb_potentials = charges[variant_indexes].unsqueeze(dim=1) * \
+                         charges[surrounding_indexes].unsqueeze(dim=0) * \
+                         (COULOMB_CONSTANT / EPSILON0) / focus_distances * coulomb_cutoff
 
-    # calculate coulomb potentials
-    coulomb_constant_factor = COULOMB_CONSTANT / EPSILON0
+    #for index0 in range(coulomb_potentials.shape[0]):
+    #    for index1 in range(coulomb_potentials.shape[1]):
+    #        atom0 = atoms[index0]
+    #        atom1 = atoms[index1]
+    #
+    #        value = coulomb_potentials[index0, index1]
+    #
+    #        _log.debug(f"{value} for {atom0} - {atom1}")
+    #        assert torch.abs(value) < 100.0
 
-    coulomb_radius_factors = torch.square(torch.ones(count_pairs).to(environment.device) - torch.square(distances / max_interatomic_distance))
-
-    coulomb_potentials = charges0 * charges1 * coulomb_constant_factor / distances * coulomb_radius_factors
-
-    # sum per atom
-    coulomb_per_atom = (scatter_sum(coulomb_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
-                        scatter_sum(coulomb_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
-
+    coulomb_per_atom = torch.zeros(len(atoms)).to(environment.device)
+    coulomb_per_atom[variant_indexes] = torch.sum(coulomb_potentials, dim=1).float()
+    coulomb_per_atom[surrounding_indexes] = torch.sum(coulomb_potentials, dim=0).float()
     _store_features(feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
 
-    # calculate vanderwaals potentials
-    vanderwaals_constant_factor = pow(SQUARED_VANDERWAALS_DISTANCE_OFF - SQUARED_VANDERWAALS_DISTANCE_ON, 3)
+    # determine whether distances are inter or intra
+    bonded_matrix = (distance_matrix < MAX_BOND_DISTANCE).float()
+    bonded2_matrix = torch.matmul(bonded_matrix, bonded_matrix)
+    bonded3_matrix = torch.matmul(bonded2_matrix, bonded_matrix).bool()  # clamp to 0.0 - 1.0
+    intra_matrix = _select_matrix_subset(bonded3_matrix, variant_indexes, surrounding_indexes)
+    inter_matrix = _select_matrix_subset(torch.logical_not(bonded3_matrix), variant_indexes, surrounding_indexes)
 
-    average_sigmas = 0.5 * (sigmas0 + sigmas1)
-    average_epsilons = torch.sqrt(epsilons0 * epsilons1)
+    # fetch vanderwaals parameters
+    inter_epsilon = torch.zeros(len(atoms)).to(environment.device)
+    inter_sigma = torch.zeros(len(atoms)).to(environment.device)
+    intra_epsilon = torch.zeros(len(atoms)).to(environment.device)
+    intra_sigma = torch.zeros(len(atoms)).to(environment.device)
+    for index, atom in enumerate(atoms):
+        vanderwaals_parameters = atomic_forcefield.get_vanderwaals_parameters(atom)
+        inter_epsilon[index] = vanderwaals_parameters.inter_epsilon
+        inter_sigma[index] = vanderwaals_parameters.inter_sigma
+        intra_epsilon[index] = vanderwaals_parameters.intra_epsilon
+        intra_sigma[index] = vanderwaals_parameters.intra_sigma
 
-    indices_tooclose = torch.nonzero(distances < VANDERWAALS_DISTANCE_ON)
-    indices_toofar = torch.nonzero(distances > VANDERWAALS_DISTANCE_OFF)
+    # Use intra when less than 3 bonds away from each other.
+    sigma = 0.5 * (inter_matrix * (inter_sigma[variant_indexes].unsqueeze(dim=1) + inter_sigma[surrounding_indexes].unsqueeze(dim=0)) +
+                   intra_matrix * (intra_sigma[variant_indexes].unsqueeze(dim=1) + intra_sigma[surrounding_indexes].unsqueeze(dim=0)))
 
-    vanderwaals_prefactors = (torch.pow(SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances, 2) *
-                              (SQUARED_VANDERWAALS_DISTANCE_OFF - squared_distances - 3 *
-                              (SQUARED_VANDERWAALS_DISTANCE_ON - squared_distances)) / vanderwaals_constant_factor)
-    vanderwaals_prefactors[indices_tooclose] = 0.0
-    vanderwaals_prefactors[indices_toofar] = 1.0
+    epsilon = torch.sqrt(inter_matrix * inter_epsilon[variant_indexes].unsqueeze(dim=1) * inter_epsilon[surrounding_indexes].unsqueeze(dim=0) +
+                         intra_matrix * intra_epsilon[variant_indexes].unsqueeze(dim=1) * intra_epsilon[surrounding_indexes].unsqueeze(dim=0))
 
-    vanderwaals_potentials = 4.0 * average_epsilons * torch.pow(average_sigmas / distances, 12) - torch.pow(average_sigmas / distances, 6) * vanderwaals_prefactors
+    vdw = 4.0 * epsilon * ((sigma / focus_distances) ** 12 - (sigma / focus_distances) ** 6)
 
-    # sum per atom
-    vanderwaals_per_atom = (scatter_sum(vanderwaals_potentials, atom_pair_indices[:,0], dim_size=count_atoms) +
-                            scatter_sum(vanderwaals_potentials, atom_pair_indices[:,1], dim_size=count_atoms))
+    # calculate the cutoff
+    cutoff_distance_on = 6.5
+    cutoff_distance_off = 8.5
+    squared_cutoff_distance_on = pow(cutoff_distance_on, 2)
+    squared_cutoff_distance_off = pow(cutoff_distance_off, 2)
 
-    _store_features(feature_group, VANDERWAALS_FEATURE_NAME, atoms, vanderwaals_per_atom)
+    focus_squared_distances = torch.square(focus_distances)
+    prefactors = (squared_cutoff_distance_off - focus_squared_distances) ** 2 * \
+                 (squared_cutoff_distance_off - focus_squared_distances - 3.0 * (squared_cutoff_distance_on - focus_squared_distances)) / \
+                 (squared_cutoff_distance_off - squared_cutoff_distance_on) ** 3
+
+    prefactors[focus_distances > squared_cutoff_distance_off] = 0.0
+    prefactors[focus_distances < squared_cutoff_distance_on] = 1.0
+
+    vdw *= prefactors
+
+    # store vanderwaals
+    vdw_per_atom = torch.zeros(len(atoms)).to(environment.device)
+    vdw_per_atom[variant_indexes] = torch.sum(vdw, dim=1).float()
+    vdw_per_atom[surrounding_indexes] = torch.sum(vdw, dim=0).float()
+    _store_features(feature_group, VANDERWAALS_FEATURE_NAME, atoms, vdw_per_atom)
+
+    #for index0 in range(vdw.shape[0]):
+    #    for index1 in range(vdw.shape[1]):
+    #        atom0 = variant_atoms[index0]
+    #        atom1 = surrounding_atoms[index1]
+    #
+    #        value = vdw[index0, index1]
+    #
+    #        _log.info(f"distance {focus_distances[index0, index1]}")
+    #        _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}, epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
+    #        _log.info(f"prefactor {prefactors[index0, index1]}")
+    #        _log.info(f"{value} for {atom0} - {atom1}")
+    #        assert torch.abs(value) < 100.0
+
