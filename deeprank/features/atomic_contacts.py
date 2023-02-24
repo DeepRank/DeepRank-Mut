@@ -121,20 +121,19 @@ def __compute_feature__(environment: Environment,
 
     positions = torch.tensor(positions).to(environment.device)
     distance_matrix = torch.cdist(positions, positions, p=2)
-    focus_distances = _select_matrix_subset(distance_matrix, variant_indexes, surrounding_indexes)
+    r = _select_matrix_subset(distance_matrix, variant_indexes, surrounding_indexes)
 
     # get charges
-    charges = torch.tensor([atomic_forcefield.get_charge(atom)
-                            for atom in atoms]).to(environment.device)
+    q = torch.tensor([atomic_forcefield.get_charge(atom)
+                      for atom in atoms]).to(environment.device)
 
-    _store_features(feature_group, CHARGE_FEATURE_NAME, atoms, charges)
+    _store_features(feature_group, CHARGE_FEATURE_NAME, atoms, q)
 
     # calculate coulomb
     cutoff_distance = 8.5
-    coulomb_cutoff = torch.square(torch.ones(focus_distances.shape).to(environment.device) - torch.square(focus_distances / cutoff_distance))
-    coulomb_potentials = charges[variant_indexes].unsqueeze(dim=1) * \
-                         charges[surrounding_indexes].unsqueeze(dim=0) * \
-                         (COULOMB_CONSTANT / EPSILON0) / focus_distances * coulomb_cutoff
+    coulomb_cutoff = torch.square(torch.ones(r.shape).to(environment.device) - torch.square(r / cutoff_distance))
+    q1q2 = q[variant_indexes].unsqueeze(dim=1) * q[surrounding_indexes].unsqueeze(dim=0)
+    ec = q1q2 * (COULOMB_CONSTANT / EPSILON0) / r * coulomb_cutoff
 
     #for index0 in range(coulomb_potentials.shape[0]):
     #    for index1 in range(coulomb_potentials.shape[1]):
@@ -147,8 +146,8 @@ def __compute_feature__(environment: Environment,
     #        assert torch.abs(value) < 100.0
 
     coulomb_per_atom = torch.zeros(len(atoms)).to(environment.device)
-    coulomb_per_atom[variant_indexes] = torch.sum(coulomb_potentials, dim=1).float()
-    coulomb_per_atom[surrounding_indexes] = torch.sum(coulomb_potentials, dim=0).float()
+    coulomb_per_atom[variant_indexes] = torch.sum(ec, dim=1).float()
+    coulomb_per_atom[surrounding_indexes] = torch.sum(ec, dim=0).float()
     _store_features(feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
 
     # determine whether distances are inter or intra
@@ -177,21 +176,18 @@ def __compute_feature__(environment: Environment,
     epsilon = torch.sqrt(inter_matrix * inter_epsilon[variant_indexes].unsqueeze(dim=1) * inter_epsilon[surrounding_indexes].unsqueeze(dim=0) +
                          intra_matrix * intra_epsilon[variant_indexes].unsqueeze(dim=1) * intra_epsilon[surrounding_indexes].unsqueeze(dim=0))
 
-    vdw = 4.0 * epsilon * ((sigma / focus_distances) ** 12 - (sigma / focus_distances) ** 6)
+    vdw = 4.0 * epsilon * ((sigma / r) ** 12 - (sigma / r) ** 6)
 
     # calculate the cutoff
-    cutoff_distance_on = 6.5
-    cutoff_distance_off = 8.5
-    squared_cutoff_distance_on = pow(cutoff_distance_on, 2)
-    squared_cutoff_distance_off = pow(cutoff_distance_off, 2)
+    r_on = 6.5
+    r_off = 8.5
 
-    focus_squared_distances = torch.square(focus_distances)
-    prefactors = (squared_cutoff_distance_off - focus_squared_distances) ** 2 * \
-                 (squared_cutoff_distance_off - focus_squared_distances - 3.0 * (squared_cutoff_distance_on - focus_squared_distances)) / \
-                 (squared_cutoff_distance_off - squared_cutoff_distance_on) ** 3
+    prefactors = (r_off ** 2 - r ** 2) ** 2 * \
+                 (r_off ** 2 - r ** 2 - 3.0 * (r_on ** 2 - r ** 2)) / \
+                 (r_off ** 2 - r_on ** 2) ** 3
 
-    prefactors[focus_distances > squared_cutoff_distance_off] = 0.0
-    prefactors[focus_distances < squared_cutoff_distance_on] = 1.0
+    prefactors[r > r_off] = 0.0
+    prefactors[r < r_on] = 1.0
 
     vdw *= prefactors
 
@@ -208,8 +204,9 @@ def __compute_feature__(environment: Environment,
     #
     #        value = vdw[index0, index1]
     #
-    #        _log.info(f"distance {focus_distances[index0, index1]}")
-    #        _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}, epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
+    #        _log.info(f"distance {r[index0, index1]}")
+    #        _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}")
+    #        _log.info(f"epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
     #        _log.info(f"prefactor {prefactors[index0, index1]}")
     #        _log.info(f"{value} for {atom0} - {atom1}")
     #        assert torch.abs(value) < 100.0
