@@ -33,7 +33,7 @@ VANDERWAALS_DISTANCE_ON = 6.5
 SQUARED_VANDERWAALS_DISTANCE_OFF = numpy.square(VANDERWAALS_DISTANCE_OFF)
 SQUARED_VANDERWAALS_DISTANCE_ON = numpy.square(VANDERWAALS_DISTANCE_ON)
 
-MAX_BOND_DISTANCE = 2.1
+MAX_BOND_DISTANCE = 2.2
 
 COULOMB_FEATURE_NAME = "coulomb"
 VANDERWAALS_FEATURE_NAME = "vdwaals"
@@ -191,23 +191,26 @@ def __compute_feature__(environment: Environment,
 
     vdw *= prefactors
 
+    # ignore bonded atoms
+    vdw[r < MAX_BOND_DISTANCE] = 0.0
+
     # store vanderwaals
     vdw_per_atom = torch.zeros(len(atoms)).to(environment.device)
     vdw_per_atom[variant_indexes] = torch.sum(vdw, dim=1).float()
     vdw_per_atom[surrounding_indexes] = torch.sum(vdw, dim=0).float()
     _store_features(feature_group, VANDERWAALS_FEATURE_NAME, atoms, vdw_per_atom)
 
-    #for index0 in range(vdw.shape[0]):
-    #    for index1 in range(vdw.shape[1]):
-    #        atom0 = variant_atoms[index0]
-    #        atom1 = surrounding_atoms[index1]
-    #
-    #        value = vdw[index0, index1]
-    #
-    #        _log.info(f"distance {r[index0, index1]}")
-    #        _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}")
-    #        _log.info(f"epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
-    #        _log.info(f"prefactor {prefactors[index0, index1]}")
-    #        _log.info(f"{value} for {atom0} - {atom1}")
-    #        assert torch.abs(value) < 100.0
+#    for index0 in range(vdw.shape[0]):
+#        for index1 in range(vdw.shape[1]):
+#            atom0 = variant_atoms[index0]
+#            atom1 = surrounding_atoms[index1]
+#
+#            value = vdw[index0, index1]
+#
+#            _log.info(f"distance {r[index0, index1]}")
+#            _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}")
+#            _log.info(f"epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
+#            _log.info(f"prefactor {prefactors[index0, index1]}")
+#            _log.info(f"{value} for {atom0} - {atom1}")
+#            assert torch.abs(value) < 100.0
 
