@@ -33,7 +33,7 @@ VANDERWAALS_DISTANCE_ON = 6.5
 SQUARED_VANDERWAALS_DISTANCE_OFF = numpy.square(VANDERWAALS_DISTANCE_OFF)
 SQUARED_VANDERWAALS_DISTANCE_ON = numpy.square(VANDERWAALS_DISTANCE_ON)
 
-MAX_BOND_DISTANCE = 2.1
+MAX_BOND_DISTANCE = 2.2
 
 COULOMB_FEATURE_NAME = "coulomb"
 VANDERWAALS_FEATURE_NAME = "vdwaals"
@@ -123,6 +123,14 @@ def __compute_feature__(environment: Environment,
     distance_matrix = torch.cdist(positions, positions, p=2)
     r = _select_matrix_subset(distance_matrix, variant_indexes, surrounding_indexes)
 
+    # determine whether distances are inter or intra
+    bonded_matrix = (distance_matrix < MAX_BOND_DISTANCE).float()
+    bonded2_matrix = torch.matmul(bonded_matrix, bonded_matrix)
+    bonded3_matrix = torch.matmul(bonded2_matrix, bonded_matrix)
+    # clamp to 0.0 - 1.0
+    ignore_matrix = _select_matrix_subset(bonded2_matrix.bool(), variant_indexes, surrounding_indexes)
+    intra_matrix = _select_matrix_subset(bonded3_matrix.bool(), variant_indexes, surrounding_indexes)
+
     # get charges
     q = torch.tensor([atomic_forcefield.get_charge(atom)
                       for atom in atoms]).to(environment.device)
@@ -135,27 +143,13 @@ def __compute_feature__(environment: Environment,
     q1q2 = q[variant_indexes].unsqueeze(dim=1) * q[surrounding_indexes].unsqueeze(dim=0)
     ec = q1q2 * (COULOMB_CONSTANT / EPSILON0) / r * coulomb_cutoff
 
-    #for index0 in range(coulomb_potentials.shape[0]):
-    #    for index1 in range(coulomb_potentials.shape[1]):
-    #        atom0 = atoms[index0]
-    #        atom1 = atoms[index1]
-    #
-    #        value = coulomb_potentials[index0, index1]
-    #
-    #        _log.debug(f"{value} for {atom0} - {atom1}")
-    #        assert torch.abs(value) < 100.0
+    # ignore electrostatic between atoms that are covalent 1/2 bonds away from each other
+    ec[ignore_matrix] = 0.0
 
     coulomb_per_atom = torch.zeros(len(atoms)).to(environment.device)
     coulomb_per_atom[variant_indexes] = torch.sum(ec, dim=1).float()
     coulomb_per_atom[surrounding_indexes] = torch.sum(ec, dim=0).float()
     _store_features(feature_group, COULOMB_FEATURE_NAME, atoms, coulomb_per_atom)
-
-    # determine whether distances are inter or intra
-    bonded_matrix = (distance_matrix < MAX_BOND_DISTANCE).float()
-    bonded2_matrix = torch.matmul(bonded_matrix, bonded_matrix)
-    bonded3_matrix = torch.matmul(bonded2_matrix, bonded_matrix).bool()  # clamp to 0.0 - 1.0
-    intra_matrix = _select_matrix_subset(bonded3_matrix, variant_indexes, surrounding_indexes)
-    inter_matrix = _select_matrix_subset(torch.logical_not(bonded3_matrix), variant_indexes, surrounding_indexes)
 
     # fetch vanderwaals parameters
     inter_epsilon = torch.zeros(len(atoms)).to(environment.device)
@@ -170,11 +164,11 @@ def __compute_feature__(environment: Environment,
         intra_sigma[index] = vanderwaals_parameters.intra_sigma
 
     # Use intra when less than 3 bonds away from each other.
-    sigma = 0.5 * (inter_matrix * (inter_sigma[variant_indexes].unsqueeze(dim=1) + inter_sigma[surrounding_indexes].unsqueeze(dim=0)) +
-                   intra_matrix * (intra_sigma[variant_indexes].unsqueeze(dim=1) + intra_sigma[surrounding_indexes].unsqueeze(dim=0)))
+    sigma = 0.5 * (inter_sigma[variant_indexes].unsqueeze(dim=1) + inter_sigma[surrounding_indexes].unsqueeze(dim=0))
+    sigma[intra_matrix] = 0.5 * (intra_sigma[variant_indexes].unsqueeze(dim=1) + intra_sigma[surrounding_indexes].unsqueeze(dim=0))[intra_matrix]
 
-    epsilon = torch.sqrt(inter_matrix * inter_epsilon[variant_indexes].unsqueeze(dim=1) * inter_epsilon[surrounding_indexes].unsqueeze(dim=0) +
-                         intra_matrix * intra_epsilon[variant_indexes].unsqueeze(dim=1) * intra_epsilon[surrounding_indexes].unsqueeze(dim=0))
+    epsilon = torch.sqrt(inter_epsilon[variant_indexes].unsqueeze(dim=1) * inter_epsilon[surrounding_indexes].unsqueeze(dim=0))
+    epsilon[intra_matrix] = torch.sqrt(intra_epsilon[variant_indexes].unsqueeze(dim=1) * intra_epsilon[surrounding_indexes].unsqueeze(dim=0))[intra_matrix]
 
     vdw = 4.0 * epsilon * ((sigma / r) ** 12 - (sigma / r) ** 6)
 
@@ -191,26 +185,12 @@ def __compute_feature__(environment: Environment,
 
     vdw *= prefactors
 
-    # ignore bonded atoms
-    vdw[r < MAX_BOND_DISTANCE] = 0.0
+    # ignore vanderwaals interactions between atoms that are 1/2 bonds away from each other
+    vdw[ignore_matrix] = 0.0
 
     # store vanderwaals
     vdw_per_atom = torch.zeros(len(atoms)).to(environment.device)
     vdw_per_atom[variant_indexes] = torch.sum(vdw, dim=1).float()
     vdw_per_atom[surrounding_indexes] = torch.sum(vdw, dim=0).float()
     _store_features(feature_group, VANDERWAALS_FEATURE_NAME, atoms, vdw_per_atom)
-
-    #for index0 in range(vdw.shape[0]):
-    #    for index1 in range(vdw.shape[1]):
-    #        atom0 = variant_atoms[index0]
-    #        atom1 = surrounding_atoms[index1]
-    #
-    #        value = vdw[index0, index1]
-    #
-    #        _log.info(f"distance {r[index0, index1]}")
-    #        _log.info(f"intra {intra_matrix[index0, index1]}, inter {inter_matrix[index0, index1]}")
-    #        _log.info(f"epsilon {epsilon[index0, index1]}, sigma {sigma[index0, index1]}")
-    #        _log.info(f"prefactor {prefactors[index0, index1]}")
-    #        _log.info(f"{value} for {atom0} - {atom1}")
-    #        assert torch.abs(value) < 100.0
 
