@@ -191,6 +191,9 @@ def __compute_feature__(environment: Environment,
 
     vdw *= prefactors
 
+    # ignore bonded atoms
+    vdw[r < MAX_BOND_DISTANCE] = 0.0
+
     # store vanderwaals
     vdw_per_atom = torch.zeros(len(atoms)).to(environment.device)
     vdw_per_atom[variant_indexes] = torch.sum(vdw, dim=1).float()
