@@ -322,6 +322,7 @@ class NeuralNet():
                     nepoch=nepoch,
                     train_batch_size=train_batch_size,
                     num_workers=num_workers,
+                    prefetch_factor=prefetch_factor,
                     save_model=save_model)
 
         logger.info(
