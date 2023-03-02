@@ -264,12 +264,13 @@ class NeuralNet():
             sys.exit()
 
     def train(self,
-              nepoch=50,
+              nepoch=10,
               divide_trainset=None,
-              train_batch_size=10,
+              train_batch_size=128,
               preshuffle=True,
               preshuffle_seed=None,
-              num_workers=1,
+              num_workers=18,
+              prefetch_factor=20,
               save_model='best'):
 
         """Perform a simple training of the model.
@@ -290,6 +291,9 @@ class NeuralNet():
 
             num_workers (int, optional): number of workers to be used to
                 prepare the batch data
+                
+            prefetch_factor (int, optional): Number of batches loaded in by 
+                each worker
 
             save_model (str, optional): 'best' or 'all', save only the
                 best model or all models.
@@ -482,8 +486,9 @@ class NeuralNet():
         return index_train, index_valid, index_test
 
     def _train(self, index_train, index_valid, index_test,
-               nepoch=50, train_batch_size=5,
-               num_workers=1,
+               nepoch=10, train_batch_size=128,
+               num_workers=18,
+               prefetch_factor=20,
                save_model='best'):
         """Train the model.
 
@@ -495,6 +500,8 @@ class NeuralNet():
             train_batch_size (int, optional): size of the batch
             num_workers (int, optional): number of workers pytorch
                 uses to create the batch size
+            prefetch_factor (int, optional): number of batches per 
+                worker
             save_model (str, optional): 'all' or 'best'
 
         Returns:
@@ -532,6 +539,7 @@ class NeuralNet():
             sampler=train_sampler,
             pin_memory=pin,
             num_workers=num_workers,
+            prefetch_factor=prefetch_factor,
             shuffle=False,
             drop_last=True)
         if _valid_:
@@ -541,6 +549,7 @@ class NeuralNet():
                 sampler=valid_sampler,
                 pin_memory=pin,
                 num_workers=num_workers,
+                prefetch_factor=prefetch_factor,
                 shuffle=False,
                 drop_last=True)
         if _test_:
@@ -550,6 +559,7 @@ class NeuralNet():
                 sampler=test_sampler,
                 pin_memory=pin,
                 num_workers=num_workers,
+                prefetch_factor=prefetch_factor,
                 shuffle=False,
                 drop_last=True)
 
