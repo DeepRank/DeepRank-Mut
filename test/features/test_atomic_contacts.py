@@ -280,3 +280,13 @@ def test_large_structure():
     variant = PdbVariantSelection("2Y69", "A", 145, isoleucine, leucine)
 
     _compute_features(environment, variant)
+
+
+def test_interactions_only_involve_variant():
+
+    environment = Environment(pdb_root="test/data/pdb")
+
+    variant = PdbVariantSelection("1SGW", "A", 137, alanine, threonine)
+
+    charge_data, coulomb_data, vanderwaals_data = _compute_features(environment, variant)
+

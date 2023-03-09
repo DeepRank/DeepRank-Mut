@@ -56,7 +56,7 @@ class Pssm:
 
             Args:
                 residue_id (Residue, unique): identifier of the residue in the protein
-                amino_acid_letter (str): one-letter code of the amino acid
+                amino_acid_letter (str): three-letter code of the amino acid
         """
 
         if residue_id not in self._residue_records:

@@ -11,11 +11,13 @@ from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_pdb_path
 from deeprank.parse.pssm import parse_pssm
 from deeprank.models.pssm import Pssm
 from deeprank.models.residue import Residue
+from deeprank.domain.amino_acid import amino_acids
 
 
 IC_FEATURE_NAME = "residue_information_content"
 WT_FEATURE_NAME = "wild_type_probability"
 VAR_FEATURE_NAME = "variant_probability"
+PSSM_FEATURE_NAME = "pssm_"
 
 def get_neighbour_c_alphas(environment, variant, distance_cutoff):
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
@@ -120,6 +122,12 @@ def __compute_feature__(environment, distance_cutoff, feature_group, variant):
             xyz_key = tuple(atom.position)
 
             feature_object.feature_data_xyz[IC_FEATURE_NAME][xyz_key] = [pssm.get_information_content(atom.residue)]
+
+        for amino_acid in amino_acids:
+            feature_name = PSSM_FEATURE_NAME + amino_acid.code
+            feature_value = pssm.get_probability(atom.residue, amino_acid.code)
+
+            feature_object.feature_data_xyz[feature_name] = {xyz_key: [feature_value]}
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
