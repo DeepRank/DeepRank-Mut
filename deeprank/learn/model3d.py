@@ -66,13 +66,14 @@ class cnn_reg(nn.Module):
 # ----------------------------------------------------------------------
 # Network Structure
 # ----------------------------------------------------------------------
-# conv layer   0: conv | input -1  output  4  kernel  2  post relu
-# conv layer   1: conv | input  4  output  4  kernel  2
-# conv layer   2: pool | kernel  2  post None
-# conv layer   3: conv | input  4  output  5  kernel  2  post relu
-# conv layer   4: pool | kernel  2  post None
-# fc   layer   0: fc   | input -1  output  84  post relu
-# fc   layer   1: fc   | input  84  output  1  post None
+# conv layer   0: batchnorm | input -1  
+# conv layer   1: conv      | input -1  output (input/2)  kernel  2  post relu
+# conv layer   2: batchnorm | input -1
+# conv layer   3: conv      | input (input/2)  output (input/2)  kernel  2  post relu
+# conv layer   4: pool      | kernel  2  post None
+# conv layer   5: conv      | input (input/2)  output (input/2)  kernel  2  post relu
+# fc   layer   0: fc        | input -1  output  84  post relu
+# fc   layer   1: fc        | input  84  output  1  post None
 # ----------------------------------------------------------------------
 
 class cnn_class(nn.Module):
@@ -100,7 +101,9 @@ class cnn_class(nn.Module):
         return out.data.view(1, -1).size(1)
 
     def _forward_features(self, x):
+        x = self.convlayer_000(x)
         x = F.relu(self.convlayer_001(x))
+        x = self.convlayer_002(x)
         x = F.relu(self.convlayer_003(x))
         x = self.convlayer_004(x)
         x = F.relu(self.convlayer_005(x))
