@@ -27,13 +27,14 @@ def test_feature():
             group = f5.require_group("features")
             __compute_feature__(environment, 10.0, group, variant)
 
-            # Check that the features are present on the grid:
-            ok_(len(group.get(WT_FEATURE_NAME)) > 0)
-            ok_(len(group.get(VAR_FEATURE_NAME)) > 0)
-            ok_(len(group.get(IC_FEATURE_NAME)) > 0)
+            # Check that the features are present in the list:
+            ok_(len(group.get(WT_FEATURE_NAME)) >= 4)
+            ok_(len(group.get(VAR_FEATURE_NAME)) >= 4)
 
+            # These features should be collected for ALL neighbouring atoms
+            ok_(len(group.get(IC_FEATURE_NAME)) > 20)
             for amino_acid in amino_acids:
-                ok_(len(group.get(PSSM_FEATURE_NAME + amino_acid.code)) > 0)
+                ok_(len(group.get(PSSM_FEATURE_NAME + amino_acid.code)) > 20)
     finally:
         rmtree(tmp_dir_path)
 

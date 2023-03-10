@@ -1,6 +1,7 @@
 from glob import glob
 import os
 
+from typing import Set
 from pdb2sql import pdb2sql
 import numpy
 
@@ -11,6 +12,8 @@ from deeprank.operate.pdb import get_residue_contact_atom_pairs, get_pdb_path
 from deeprank.parse.pssm import parse_pssm
 from deeprank.models.pssm import Pssm
 from deeprank.models.residue import Residue
+from deeprank.models.atom import Atom
+from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.amino_acid import amino_acids
 
 
@@ -19,7 +22,8 @@ WT_FEATURE_NAME = "wild_type_probability"
 VAR_FEATURE_NAME = "variant_probability"
 PSSM_FEATURE_NAME = "pssm_"
 
-def get_neighbour_c_alphas(environment, variant, distance_cutoff):
+
+def get_neighbour_atoms(environment, variant, distance_cutoff):
     pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
 
     db = pdb2sql(pdb_path)
@@ -29,29 +33,25 @@ def get_neighbour_c_alphas(environment, variant, distance_cutoff):
 
             # For each residue in the contact range, get the C-alpha:
             for atom in (atom1.residue.atoms + atom2.residue.atoms):
-                if atom.name == "CA":
-                    atoms.add(atom)
+                atoms.add(atom)
 
         return atoms
     finally:
         db._close()
 
 
-def get_c_alpha_pos(environment, variant):
-    "gets coordinates for the variant amino acid"
+def find_variant_atoms(atoms: Set[Atom], variant: PdbVariantSelection) -> Set[Atom]:
 
-    pdb_path = get_pdb_path(environment.pdb_root, variant.pdb_ac)
+    variant_atoms = set([])
+    for atom in atoms:
+        residue = atom.residue
+        if residue.chain_id == variant.chain_id and \
+           residue.number == variant.residue_number and \
+           residue.insertion_code == variant.insertion_code:
 
-    db = pdb2sql(pdb_path)
-    try:
-        if variant.insertion_code is not None:
-            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, iCode=variant, name="CA")[0]
-        else:
-            position = db.get("x,y,z", chainID=variant.chain_id, resSeq=variant.residue_number, name="CA")[0]
+            variant_atoms.add(atom)
 
-        return position
-    finally:
-        db._close()
+    return variant_atoms
 
 
 def get_pssm_paths(pssm_root, pdb_ac):
@@ -90,10 +90,10 @@ def __compute_feature__(environment, distance_cutoff, feature_group, variant):
     "this feature module adds amino acid probability and residue information content as deeprank features"
 
     # Get the C-alpha atoms, each belongs to a neighbouring residue
-    neighbour_c_alphas = get_neighbour_c_alphas(environment, variant, distance_cutoff)
+    neighbour_atoms = get_neighbour_atoms(environment, variant, distance_cutoff)
 
     # Give each chain id a number:
-    chain_ids = set([atom.chain_id for atom in neighbour_c_alphas])
+    chain_ids = set([atom.chain_id for atom in neighbour_atoms])
     chain_numbers = {chain_id: index for index, chain_id in enumerate(chain_ids)}
 
     pssm = _get_pssm(chain_ids, variant, environment)
@@ -103,31 +103,38 @@ def __compute_feature__(environment, distance_cutoff, feature_group, variant):
     feature_object.feature_data_xyz[WT_FEATURE_NAME] = {}
     feature_object.feature_data_xyz[VAR_FEATURE_NAME] = {}
     feature_object.feature_data_xyz[IC_FEATURE_NAME] = {}
+    for amino_acid in amino_acids:
+        feature_object.feature_data_xyz[PSSM_FEATURE_NAME + amino_acid.code] = {}
+
+    # Get the variant atoms:
+    residue_id = Residue(variant.residue_number, variant.wildtype_amino_acid, variant.chain_id)
+    variant_atoms = set([atom for atom in neighbour_atoms if atom.residue == residue_id])
+    if len(variant_atoms) == 0:
+        raise ValueError(f"No atoms found for {residue_id}")
 
     # Get variant probability features and place them at the C-alpha xyz position:
-    c_alpha_position = get_c_alpha_pos(environment, variant)
-    residue_id = Residue(variant.residue_number, variant.wildtype_amino_acid, variant.chain_id)
-
     if pssm.has_residue(residue_id):
         wild_type_probability = pssm.get_probability(residue_id, variant.wild_type_amino_acid.code)
         variant_probability = pssm.get_probability(residue_id, variant.variant_amino_acid.code)
-        xyz_key = tuple(c_alpha_position)
 
-        feature_object.feature_data_xyz[WT_FEATURE_NAME][xyz_key] = [wild_type_probability]
-        feature_object.feature_data_xyz[VAR_FEATURE_NAME][xyz_key] = [variant_probability]
+        for atom in variant_atoms:
+            xyz_key = tuple(atom.position)
+
+            feature_object.feature_data_xyz[WT_FEATURE_NAME][xyz_key] = [wild_type_probability]
+            feature_object.feature_data_xyz[VAR_FEATURE_NAME][xyz_key] = [variant_probability]
 
     # For each neighbouring C-alpha, get the residue's PSSM features:
-    for atom in neighbour_c_alphas:
+    for atom in neighbour_atoms:
         if pssm.has_residue(atom.residue):
             xyz_key = tuple(atom.position)
 
             feature_object.feature_data_xyz[IC_FEATURE_NAME][xyz_key] = [pssm.get_information_content(atom.residue)]
 
-        for amino_acid in amino_acids:
-            feature_name = PSSM_FEATURE_NAME + amino_acid.code
-            feature_value = pssm.get_probability(atom.residue, amino_acid.code)
+            for amino_acid in amino_acids:
+                feature_name = PSSM_FEATURE_NAME + amino_acid.code
+                feature_value = pssm.get_probability(atom.residue, amino_acid.code)
 
-            feature_object.feature_data_xyz[feature_name] = {xyz_key: [feature_value]}
+                feature_object.feature_data_xyz[feature_name][xyz_key] = [feature_value]
 
     # Export to HDF5 file:
     feature_object.export_dataxyz_hdf5(feature_group)
