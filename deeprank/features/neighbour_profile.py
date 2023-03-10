@@ -30,7 +30,7 @@ def get_neighbour_c_alphas(environment, variant, distance_cutoff):
             # For each residue in the contact range, get the C-alpha:
             for atom in (atom1.residue.atoms + atom2.residue.atoms):
                 if atom.name == "CA":
-                    atoms.add(atom1)
+                    atoms.add(atom)
 
         return atoms
     finally:
