@@ -67,7 +67,7 @@ def __compute_feature__(environment: Environment, distance_cutoff: float, featur
         xyz_key = tuple(atom.position)
 
         if atom.residue not in dssp:
-            continue  # a residue can be missing in dssp, if the backbone is incomplete
+            raise ValueError(f"{atom.residue} is missing from the dssp data")
 
         secondary_structure = dssp[atom.residue]
 
