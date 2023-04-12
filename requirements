@@ -20,4 +20,4 @@ pyrr
 pyopengl
 torchvision
 tensorboard
-sklearn
+scikit-learn
