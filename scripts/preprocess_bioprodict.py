@@ -113,6 +113,7 @@ def has_dssp(dssp_root: str, pdb_ac: str) -> bool:
 def has_pssm(pssm_root: str, pdb_ac: str) -> bool:
 
     paths = glob(os.path.join(pssm_root, "{}/pssm/{}.?.pdb.pssm".format(pdb_ac.lower(), pdb_ac.lower())))
+    paths += glob(os.path.join(pssm_root, "{}.?.pdb.pssm".format(pdb_ac.lower())))
 
     if len(paths) == 0:
         _log.warning("no pssms for {}".format(pdb_ac))
