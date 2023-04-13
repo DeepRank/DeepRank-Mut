@@ -58,7 +58,7 @@ setup(
         'freesasa==2.0.5;platform_system=="Darwin"',
         'fastparquet',
         'memory_profiler',
-        'sklearn',
+        'scikit-learn',
         'pyopengl',
         'glfw',
         'pyrr'
