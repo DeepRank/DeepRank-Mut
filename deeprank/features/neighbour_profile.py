@@ -66,6 +66,7 @@ def get_pssm_paths(pssm_root, pdb_ac):
 
     paths = glob(os.path.join(pssm_root, "%s/pssm/%s.?.pdb.pssm" % (pdb_ac.lower(), pdb_ac.lower())))
     paths += glob(os.path.join(pssm_root, "%s/%s.?.pdb.pssm" % (pdb_ac.upper(), pdb_ac.upper())))
+    paths += glob(os.path.join(pssm_root, "%s.?.pdb.pssm" % pdb_ac.lower()))
 
     return {os.path.basename(path).split('.')[1]: path for path in paths}
 

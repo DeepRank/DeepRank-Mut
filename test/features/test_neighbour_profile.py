@@ -5,7 +5,7 @@ from shutil import rmtree
 import h5py
 from nose.tools import ok_, eq_
 
-from deeprank.features.neighbour_profile import (__compute_feature__,
+from deeprank.features.neighbour_profile import (__compute_feature__, get_pssm_paths,
                                                  IC_FEATURE_NAME, WT_FEATURE_NAME, VAR_FEATURE_NAME, PSSM_FEATURE_NAME)
 from deeprank.models.variant import PdbVariantSelection
 from deeprank.domain.amino_acid import valine, alanine, glycine, tryptophan, amino_acids
@@ -37,6 +37,13 @@ def test_feature():
                 ok_(len(group.get(PSSM_FEATURE_NAME + amino_acid.code)) > 20)
     finally:
         rmtree(tmp_dir_path)
+
+
+def test_alt_pssm_path():
+
+    paths = get_pssm_paths("test/data/pssm", "4lhd")
+
+    assert "A" in paths
 
 
 def test_zero_missing_pssm():
