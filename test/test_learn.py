@@ -88,6 +88,6 @@ def test_learn():
                                          momentum=0.9,
                                          weight_decay=0.005)
 
-        neural_net.train(nepoch=10, divide_trainset=0.8, train_batch_size=2, num_workers=0, prefetch_factor=0)
+        neural_net.train(nepoch=10, divide_trainset=0.8, train_batch_size=2, num_workers=0, prefetch_factor=None)
     finally:
         rmtree(work_dir_path)
