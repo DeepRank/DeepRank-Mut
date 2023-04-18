@@ -1,9 +1,4 @@
 # DeepRank
-[![Documentation Status](https://readthedocs.org/projects/deeprank/badge/?version=latest)](http://deeprank.readthedocs.io/?badge=latest)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3735042.svg)](https://doi.org/10.5281/zenodo.3735042)
-![Build](https://github.com/DeepRank/deeprank/workflows/Build/badge.svg)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/4254dd4798bf4cfa9f8f6fe0079de144)](https://www.codacy.com/gh/DeepRank/deeprank/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DeepRank/deeprank&amp;utm_campaign=Badge_Grade)
-[![Coverage Status](https://coveralls.io/repos/github/DeepRank/deeprank/badge.svg?branch=master)](https://coveralls.io/github/DeepRank/deeprank?branch=master)
 
 
 ### Contents
@@ -11,16 +6,15 @@
 - [Overview](#overview)
 - [Installation](#installation)
 - [Quick Tutorial](#Tutorial)
-- [Documentation](https://deeprank.readthedocs.io/)
 - [License](./LICENSE)
 - [Issues & Contributing](#Issues-and-Contributing)
 
 ## Overview
-![alt-text](./pics/deeprankv.2.0.png)
 
-DeepRank is a general, configurable deep learning framework for predicting pathogenicity of missense variants using 3D convolutional neural networks (CNNs).
+DeepRank-mut is a general, configurable deep learning framework for predicting pathogenicity of missense variants using 3D convolutional neural networks (CNNs).
 
-DeepRank contains useful APIs for pre-processing protein structural data, computing features for atoms/residues surrounding the missense variant, as well as training and testing CNN models.
+DeepRank-mut contains useful APIs for pre-processing protein structural data, computing features for atoms/residues surrounding the missense variant,
+as well as training and testing CNN models.
 
 #### Features:
 
@@ -29,23 +23,17 @@ DeepRank contains useful APIs for pre-processing protein structural data, comput
 - Flexible definition of new features
 - 3D grid feature mapping
 - Efficient data storage in HDF5 format
-- Support both classification and regression (based on PyTorch)
 
 ## Installation
 
 DeepRank requires a Python version 3.7 or 3.8 on Linux and MacOS.
 
-#### Stable Release
-
-DeepRank is available in stable releases on [PyPI](https://pypi.org/project/deeprank/):
--  Install the module `pip install deeprank`
-
 #### Development Version
 
 You can also install the under development source code from the branch `development`
 
-- Clone the repository `git clone --branch development https://github.com/DeepRank/DeepRank_VariantEffect-Pred.git`
-- Go there             `cd deeprank`
+- Clone the repository `git clone --branch development https://github.com/DeepRank/DeepRank-mut.git`
+- Go there             `cd deeprank-mut`
 - Install the package  `pip install -e ./`
 
 To check if installation is successful, you can run a test
@@ -55,14 +43,15 @@ To check if installation is successful, you can run a test
 
 ## Tutorial
 
-We give here the tutorial like introduction to the DeepRank machinery. More informatoin can be found in the documentation <http://deeprank.readthedocs.io/en/latest/>.  We quickly illsutrate here the two main steps of Deeprank:
+We give here the tutorial like introduction to the DeepRank machinery. We quickly illsutrate here the two main steps of Deeprank-mut:
 
 -   the generation of the data
 -   running deep leaning experiments.
 
 ### A . Generate the data set (using MPI)
 
-The generation of the data require only require PDBs files of decoys and their native and the PSSM if needed. All the features/targets and mapped features onto grid points will be auomatically calculated and store in a HDF5 file.
+The generation of the data require only require PDBs files of decoys and their native and the PSSM if needed.
+All the features/targets and mapped features onto grid points will be auomatically calculated and store in a HDF5 file.
 
 ```python
 from deeprank.models.variant import *
@@ -73,7 +62,7 @@ from deeprank.models.environment import Environment
 
 comm = MPI.COMM_WORLD
 
-# let's put this sample script in the test folder, so the working path will be deeprank/test/
+# let's put this sample script in the test folder, so the working path will be ./test/
 # name of the hdf5 to generate
 hdf5_path = '1ak4.hdf5'
 
@@ -186,6 +175,6 @@ We then create a `NeuralNet` instance that takes the dataset as input argument. 
 
 ## Issues and Contributing
 
-If you have questions or find a bug, please report the issue in the [Github issue channel](https://github.com/DeepRank/deeprank/issues).
+If you have questions or find a bug, please report the issue in the [Github issue channel](https://github.com/DeepRank/deeprank-mut/issues).
 
-If you want to change or further develop DeepRank code, please check the [Developer Guideline](./developer_guideline.md) to see how to conduct further development.
+If you want to change or further develop DeepRank-mut code, please check the [Developer Guideline](./developer_guideline.md) to see how to conduct further development.
