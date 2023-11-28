@@ -1,5 +1,18 @@
-# DeepRank
+# :warning: Archiving Note
 
+This repository is no longer being maintained and has been archived for historical purposes. 
+
+We have now developed [DeepRank2](https://github.com/DeepRank/deeprank2), an improved and unified version of DeepRank-Mut, [DeepRank](https://github.com/DeepRank/deeprank), and [DeepRank-GNN](https://github.com/DeepRank/Deeprank-GNN).
+
+:sparkles: DeepRank2 allows for transformation and storage of 3D representations of both protein-protein interfaces (PPIs) and protein single-residue variants (SRVs) into either graphs or volumetric grids containing structural and physico-chemical information. These can be used for training neural networks for a variety of patterns of interest, using either our pre-implemented training pipeline for graph neural networks (GNNs) or convolutional neural networks (CNNs) or external pipelines.
+
+- :wrench: **Pull Requests** at [github.com/DeepRank/deeprank2/pulls](https://github.com/DeepRank/deeprank2/pulls)
+- :bug: **Bugs**: Reports of bugs can be filed agains our new repo [github.com/DeepRank/deeprank2/issues](https://github.com/DeepRank/deeprank2/issues)
+- :star: **Feature Requests**: Add your request or discuss the project w/ the community at [github.com/DeepRank/deeprank2/issues](https://github.com/DeepRank/deeprank2/issues)
+
+We look forward to seeing you in our new space - [DeepRank2](https://github.com/DeepRank/deeprank2)!
+
+# DeepRank-Mut
 
 ### Contents
 
