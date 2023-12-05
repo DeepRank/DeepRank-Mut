@@ -126,7 +126,7 @@ def test_skip_error():
         shutil.rmtree(tmp_dir)
 
 
-@patch("deeprank.generate.GridTools.map_features")
+@patch("deeprank.generate.GridTools.GridTools.map_features")
 def test_skip_nan(mock_map_features):
     "NaN features should not be added to the preprocessing"
 
