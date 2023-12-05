@@ -37,7 +37,6 @@ You can also install the under development source code from the branch `developm
 - Install the package  `pip install -e ./`
 
 To check if installation is successful, you can run a test
-- Go into the test directory `cd test`
 - Run the test suite         `pytest`
 
 
