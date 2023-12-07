@@ -42,10 +42,11 @@ To check if installation is successful, you can run a test
 
 ## Tutorial
 
-We give here the tutorial like introduction to the DeepRank machinery. We quickly illsutrate here the two main steps of Deeprank-mut:
+We give here the tutorial like introduction to the DeepRank machinery. We quickly illsutrate here the three main steps of Deeprank-mut:
 
 -   the generation of the data
--   running deep leaning experiments.
+-   training a model from the data
+-   using the model to predict unseen data
 
 ### A . Generate the data set (using MPI)
 
@@ -77,7 +78,7 @@ comm = MPI.COMM_WORLD
 
 # let's put this sample script in the test folder, so the working path will be ./test/
 # name of the hdf5 to generate
-hdf5_path = '1ak4.hdf5'
+hdf5_path = 'train_data.hdf5'
 
 environment = Environment(pdb_root="path/to/pdb/files/",
                           pssm_root="path/to/pssm/files/")
@@ -164,19 +165,22 @@ from deeprank.learn.model3d import cnn_reg
 import torch.optim as optim
 import numpy as np
 
-# input database
-hdf5_path = '1ak4.hdf5'
+# preprocessed input data
+hdf5_path = 'train_data.hdf5'
 
 # output directory
-out = './my_DL_test/'
+out = './my_deeplearning_train/'
 
 # declare the dataset instance
-data_set = DataSet(database,
-            grid_info={
-                'number_of_points': (10, 10, 10),
-                'resolution': (3, 3, 3)},
-            select_feature='all',
-            select_target='class')
+data_set = DataSet(
+    hdf5_path,
+    grid_info={
+        'number_of_points': (10, 10, 10),
+        'resolution': (10, 10, 10)
+    },
+    select_feature='all',
+    select_target='class',
+)
 
 
 # create the network
@@ -189,13 +193,57 @@ model.optimizer = optim.SGD(model.net.parameters(),
                             momentum=0.9,
                             weight_decay=0.005)
 
-# start the training
+# start the training, this will generate a model file named `best_valid_model.pth.tar`.
 model.train(nepoch=50, divide_trainset=0.8, train_batch_size=5, num_workers=0)
 ```
 
 In the first part of the script we create a Torch database from the HDF5 file. We can specify one or several HDF5 files and even select some conformations using the `dict_filter` argument. Other options of `DataSet` can be used to specify the features/targets the normalization, etc ...
 
 We then create a `NeuralNet` instance that takes the dataset as input argument. Several options are available to specify the task to do, the GPU use, etc ... We then have simply to train the model. Simple !
+
+### C. Predicting Unclassified Data
+
+Prediction is almost similar to training, apart from the fact that there are no class labels.
+
+```
+from deeprank.learn import *
+from deeprank.learn.model3d import cnn_reg
+from deeprank.models.metrics import OutputExporter
+import torch.optim as optim
+import numpy as np
+
+# preprocessed input data
+hdf5_path = 'unseen_data.hdf5'
+
+# output directory
+out = './my_deeplearning_train/'
+
+# declare the dataset instance
+data_set = DataSet(
+    hdf5_path,
+    grid_info={
+        'number_of_points': (10, 10, 10),
+        'resolution': (10, 10, 10)
+    },
+    select_feature='all',
+    select_target='class',
+)
+
+# create the network
+model = NeuralNet(data_set, cnn_reg, model_type='3d', task='reg',
+                  pretrained_model="best_valid_model.pth.tar",
+                  metrics_exporters=[OutputExporter(out)],
+                  cuda=False, plot=True, outdir=out)
+
+# change the optimizer (optional)
+model.optimizer = optim.SGD(model.net.parameters(),
+                            lr=0.001,
+                            momentum=0.9,
+                            weight_decay=0.005)
+
+# do the prediction
+model.test()
+```
 
 ## Issues and Contributing
 
