@@ -52,12 +52,12 @@ We give here the tutorial like introduction to the DeepRank machinery. We quickl
 For data generation, PDB files must be stored locally. The user can optionally provide PSSM files, mapped to those PDB files.
 Together with the PDB files, variant data must be available. Here's an example of a table, containing variant data:
 
-```
+
 | PDB ID | CHAIN | RESIDUE | WILDTYPE | VARIANT | CLASS  |
 |--------|-------|---------|----------|---------|--------|
 | 101m   | A     | 25      | GLY      | ALA     | BENIGN |
 | 101m   | A     | 21      | VAL      | SER     | BENIGN |
-```
+
 
 The `CLASS` column would typically be omitted from unclassified variants.
 In this example, we store the table in CSV format.
