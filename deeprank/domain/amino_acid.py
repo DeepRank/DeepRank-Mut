@@ -48,3 +48,8 @@ unknown_amino_acid = AminoAcid("Unknown", "XXX", "X")
 amino_acids = [alanine, arginine, asparagine, aspartate, cysteine, glutamate, glutamine, glycine,
                histidine, isoleucine, leucine, lysine, methionine, phenylalanine, proline, serine,
                threonine, tryptophan, tyrosine, valine]
+
+amino_acids_by_code {
+    amino_acid.code
+    for amino_acid in amino_acids
+}

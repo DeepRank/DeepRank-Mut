@@ -8,6 +8,18 @@ class VariantClass(Enum):
     BENIGN = 0
     PATHOGENIC = 1
 
+    @staticmethod
+    def parse(s: str):
+        s = s.strip()
+
+        if s.upper() == "BENIGN":
+            return VariantClass.BENIGN
+
+        elif s.upper() == "PATHOGENIC":
+            return VariantClass.PATHOGENIC
+        else:
+            raise ValueError(f"unparsable: {s}")
+
 
 class PdbVariantSelection:
     """Refers to a variant in a pdb file.

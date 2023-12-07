@@ -49,14 +49,28 @@ We give here the tutorial like introduction to the DeepRank machinery. We quickl
 
 ### A . Generate the data set (using MPI)
 
-The generation of the data require only require PDBs files of decoys and their native and the PSSM if needed.
+For data generation, PDB files must be stored locally. The user can optionally provide PSSM files, mapped to those PDB files.
+Together with the PDB files, variant data must be available. Here's an example of a table, containing variant data:
+
+```
+| PDB ID | CHAIN | RESIDUE | WILDTYPE | VARIANT | CLASS  |
+|--------|-------|---------|----------|---------|--------|
+| 101m   | A     | 25      | GLY      | ALA     | BENIGN |
+| 101m   | A     | 21      | VAL      | SER     | BENIGN |
+```
+
+The `CLASS` column would typically be omitted from unclassified variants.
+In this example, we store the table in CSV format.
+
 All the features/targets and mapped features onto grid points will be auomatically calculated and store in a HDF5 file.
 
 ```python
+import pandas
+
 from deeprank.models.variant import *
 from deeprank.generate import *
 from mpi4py import MPI
-from deeprank.domain.amino_acid import isoleucine, valine
+from deeprank.domain.amino_acid import amino_acids_by_code
 from deeprank.models.environment import Environment
 
 comm = MPI.COMM_WORLD
@@ -65,18 +79,29 @@ comm = MPI.COMM_WORLD
 # name of the hdf5 to generate
 hdf5_path = '1ak4.hdf5'
 
-environment = Environment(pdb_root="test/1AK4/native",
-                          pssm_root="test/1AK4/pssm")
+environment = Environment(pdb_root="path/to/pdb/files/",
+                          pssm_root="path/to/pssm/files/")
+table = pandas.read_csv("table.csv")
 
-variant = PdbVariantSelection("1AK4", "C", 10,
-                              wildtype_amino_acid=isoleucine, variant_amino_acid=valine,
-                              variant_class=VariantClass.BENIGN)
+variants = []
+for _, row in table.iterrows():
+    wildtype_amino_acid = amino_acids_by_code[row["WILDTYPE"]]
+    variant_amino_acid = amino_acids_by_code[row["VARIANT"]]
+
+    variant = PdbVariantSelection(
+        row["PDB ID"], row["CHAIN"], row["RESIDUE"],
+        wildtype_amino_acid=wildtype_amino_acid,
+        variant_amino_acid=variant_amino_acid,
+        variant_class=VariantClass.parse(row["CLASS"]),  # variant class is optional
+    )
+
+    variants.append(variant)
 
 
 # initialize the database
-database = DataGenerator(environment, variants=[variant],
+database = DataGenerator(environment, variants=variants,
     data_augmentation=10,
-    compute_targets=['deeprank.targets.variant_class'],
+    compute_targets=['deeprank.targets.variant_class'],  # omit this, if the variant class is not provided
     compute_features=[
         'deeprank.features.atomic_contacts',
         'deeprank.features.neighbour_profile',
