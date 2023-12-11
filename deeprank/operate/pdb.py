@@ -58,7 +58,7 @@ def get_atoms(pdb2sql):
     # Iterate over the atom output from pdb2sql, select atoms with highest occupancy.
     request_s = "x,y,z,rowID,name,element,chainID,resSeq,resName,iCode,altLoc,occ"
     highest_occupancies = {}
-    for row in pdb2sql.get(request_s):
+    for row in pdb2sql.get(request_s, model=0):
 
         try:
             x, y, z, atom_number, atom_name, element, chain_id, residue_number, residue_name, insertion_code, altloc, occ = row

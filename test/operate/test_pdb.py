@@ -71,6 +71,19 @@ def test_get_atoms():
         pdb._close()
 
 
+def test_nmr():
+    pdb_path = "test/data/pdb/1CR4/1CR4.pdb"
+
+    try:
+        pdb = pdb2sql(pdb_path)
+
+        atoms = get_atoms(pdb)
+
+        ok_(len(atoms) > 0)
+    finally:
+        pdb._close()
+
+
 def _find_atom(atoms, chain_id, residue_number, name):
     matching_atoms = [atom for atom in atoms if atom.chain_id == chain_id and
                                                 atom.name == name and atom.residue.number == residue_number]
