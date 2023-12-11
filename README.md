@@ -117,11 +117,11 @@ database.create_database(prog_bar=True)
 
 
 # define the 3D grid
- grid_info = {
+grid_info = {
    'number_of_points': [30,30,30],
    'resolution': [1.,1.,1.],
    'atomic_densities': {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8},
- }
+}
 
 # Map the features
 database.map_features(grid_info,try_sparse=True, time=False, prog_bar=True)
