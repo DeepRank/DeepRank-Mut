@@ -50,6 +50,6 @@ amino_acids = [alanine, arginine, asparagine, aspartate, cysteine, glutamate, gl
                threonine, tryptophan, tyrosine, valine]
 
 amino_acids_by_code = {
-    amino_acid.code
+    amino_acid.code: amino_acid
     for amino_acid in amino_acids
 }
