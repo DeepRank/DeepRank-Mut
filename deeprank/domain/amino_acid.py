@@ -49,7 +49,7 @@ amino_acids = [alanine, arginine, asparagine, aspartate, cysteine, glutamate, gl
                histidine, isoleucine, leucine, lysine, methionine, phenylalanine, proline, serine,
                threonine, tryptophan, tyrosine, valine]
 
-amino_acids_by_code {
+amino_acids_by_code = {
     amino_acid.code
     for amino_acid in amino_acids
 }
