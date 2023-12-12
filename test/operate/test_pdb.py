@@ -80,6 +80,9 @@ def test_nmr():
         atoms = get_atoms(pdb)
 
         ok_(len(atoms) > 0)
+
+        ok_(atoms[0].position.shape == (3,))
+
     finally:
         pdb._close()
 
