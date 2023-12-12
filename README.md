@@ -185,7 +185,7 @@ data_set = DataSet(
 
 # create the network
 model = NeuralNet(data_set,cnn_reg,model_type='3d',task='reg',
-                  cuda=False,plot=True,outdir=out)
+                  cuda=False)
 
 # change the optimizer (optional)
 model.optimizer = optim.SGD(model.net.parameters(),
@@ -233,7 +233,7 @@ data_set = DataSet(
 model = NeuralNet(data_set, cnn_reg, model_type='3d', task='reg',
                   pretrained_model="best_valid_model.pth.tar",
                   metrics_exporters=[OutputExporter(out)],
-                  cuda=False, plot=True, outdir=out)
+                  cuda=False)
 
 # change the optimizer (optional)
 model.optimizer = optim.SGD(model.net.parameters(),
