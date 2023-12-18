@@ -936,9 +936,8 @@ class DataSet():
         # get the target value
         if self.select_target is not None:
 
-            target_group = variant_data['targets']
-            if self.select_target in target_group:
-                target = target_group[self.select_target][()]
+            if 'targets' in variant_data and self.select_target in variant_data['targets']:
+                target = variant_data['targets'][self.select_target][()]
                 logger.debug("{} has target {}".format(variant_name, target))
 
                 target = np.array([target]).astype(outtype)
