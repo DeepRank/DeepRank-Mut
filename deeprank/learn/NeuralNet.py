@@ -687,7 +687,10 @@ class NeuralNet():
 
             # get the data
             inputs = batch['feature']
-            targets = batch['target']
+            if 'target' in batch:
+                targets = batch['target']
+            else:
+                targets = None
             entry_names += self._read_entry_names(batch)
 
             # transform the data
@@ -700,13 +703,14 @@ class NeuralNet():
             outputs = self.net(inputs)
 
             # class complains about the shape ...
-            if self.task == 'class':
+            if self.task == 'class' and targets is not None:
                 targets = targets.view(-1)
 
             # evaluate loss
-            batch_loss = self.criterion(outputs, targets)
+            if targets is not None:
+                batch_loss = self.criterion(outputs, targets)
 
-            sum_of_losses += batch_loss.detach().item() * outputs.shape[0]
+                sum_of_losses += batch_loss.detach().item() * outputs.shape[0]
             count_data_entries += outputs.shape[0]
 
             # zero + backward + step
@@ -717,9 +721,12 @@ class NeuralNet():
             time_learn += time.time() - tlearn0
 
             output_values += outputs.tolist()
-            target_values += targets.tolist()
 
-        self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
+            if targets is not None:
+                target_values += targets.tolist()
+
+        if len(target_values) > 0:
+            self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
 
         if count_data_entries > 0:
             epoch_loss = sum_of_losses / count_data_entries
@@ -747,13 +754,16 @@ class NeuralNet():
         # if cuda is available
         if self.cuda:
             inputs = inputs.cuda(non_blocking=True)
-            targets = targets.cuda(non_blocking=True)
+            if targets is not None:
+                targets = targets.cuda(non_blocking=True)
 
         # get the varialbe as float by default
-        inputs, targets = Variable(inputs).float(), Variable(targets).float()
+        inputs = Variable(inputs).float()
+        if targets is not None:
+            targets = Variable(targets).float()
 
         # change the targets to long for classification
-        if self.task == 'class':
+        if self.task == 'class' and targets is not None:
             targets = targets.long()
 
         return inputs, targets

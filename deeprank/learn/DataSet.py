@@ -299,7 +299,9 @@ class DataSet():
         if self.transform:
             features = self.convert2d(features, self.proj2D)
 
-        result = {'mol': [fname, mol], 'feature': features, 'target': target}
+        result = {'mol': [fname, mol], 'feature': features}
+        if target is not None:
+            result['target'] = target
         return result
 
     @staticmethod
@@ -710,7 +712,9 @@ class DataSet():
             for name in feat_names:
                 self.param_norm['features'][feat_type][name] = NormParam(
                 )
-        self.param_norm['targets'][self.select_target] = MinMaxParam()
+
+        if self.select_target is not None:
+            self.param_norm['targets'][self.select_target] = MinMaxParam()
 
         # read the normalization
         self._read_norm()
@@ -724,8 +728,9 @@ class DataSet():
                 self.feature_std.append(
                     self.param_norm['features'][feat_type][name].std)
 
-        self.target_min = self.param_norm['targets'][self.select_target].min
-        self.target_max = self.param_norm['targets'][self.select_target].max
+        if self.select_target is not None:
+            self.target_min = self.param_norm['targets'][self.select_target].min
+            self.target_max = self.param_norm['targets'][self.select_target].max
 
     def _read_norm(self):
         """Read or create the normalization file for the complex."""
@@ -756,12 +761,11 @@ class DataSet():
                         mean, var)
 
             # handle the target
-            minv = data['targets'][self.select_target].min
-            maxv = data['targets'][self.select_target].max
-            self.param_norm['targets'][self.select_target].update(
-                minv)
-            self.param_norm['targets'][self.select_target].update(
-                maxv)
+            if self.select_target is not None:
+                minv = data['targets'][self.select_target].min
+                maxv = data['targets'][self.select_target].max
+                self.param_norm['targets'][self.select_target].update(minv)
+                self.param_norm['targets'][self.select_target].update(maxv)
 
         # process the std
         nfile = len(self.train_database)
@@ -927,10 +931,21 @@ class DataSet():
 
                 logger.debug("converted feature {} {} to a {} matrix".format(feat_type, name, "x".join([str(n) for n in mat.shape])))
 
-        # get the target value
-        target = variant_data.get('targets/' + self.select_target)[()]
+        feature = np.array(feature).astype(outtype)
 
-        logger.debug("{} has target {}".format(variant_name, target))
+        # get the target value
+        if self.select_target is not None:
+
+            target_group = variant_data['targets']
+            if self.select_target in target_group:
+                target = target_group[self.select_target][()]
+                logger.debug("{} has target {}".format(variant_name, target))
+
+                target = np.array([target]).astype(outtype)
+            else:
+                target = None
+        else:
+            target = None
 
         # close
         fh5.close()
@@ -938,8 +953,7 @@ class DataSet():
         # make sure all the feature have exact same type
         # if they don't collate_fn in the creation of the minibatch will fail.
         # Note returning torch.FloatTensor makes each epoch twice longer ...
-        return (np.array(feature).astype(outtype),
-                np.array([target]).astype(outtype))
+        return (feature, target)
 
     @staticmethod
     def convert2d(feature, proj2d):
