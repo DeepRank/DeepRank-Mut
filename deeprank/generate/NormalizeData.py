@@ -127,22 +127,25 @@ class NormalizeData(object):
                     self.parameters['features'][feat_types][name].add(
                         np.mean(mat), np.var(mat))
 
-            # get the target groups
-            target_group = f5.get(mol + '/targets')
+            mol_group = f5[mol]
+            if "targets" in mol_group:
 
-            # loop over all the targets
-            for tname, tval in target_group.items():
+                # get the target groups
+                target_group = mol_group["targets"]
 
-                # we skip the already computed target
-                if tname in self.skip_target:
-                    continue
+                # loop over all the targets
+                for tname, tval in target_group.items():
 
-                # create a new item if needed
-                if tname not in self.parameters['targets']:
-                    self.parameters['targets'][tname] = MinMaxParam()
+                    # we skip the already computed target
+                    if tname in self.skip_target:
+                        continue
 
-                # update the value
-                self.parameters['targets'][tname].update(tval[()])
+                    # create a new item if needed
+                    if tname not in self.parameters['targets']:
+                        self.parameters['targets'][tname] = MinMaxParam()
+
+                    # update the value
+                    self.parameters['targets'][tname].update(tval[()])
 
         f5.close()
 

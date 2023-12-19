@@ -31,19 +31,19 @@ def test_predict_without_target():
        'number_of_points': [30,30,30],
        'resolution': [1.,1.,1.],
        'atomic_densities': atomic_densities,
-    }   
+    }
 
     environment = Environment(pdb_root="test/data/pdb", pssm_root="test/data/pssm")
 
     variants = [PdbVariantSelection("101m", "A", 10, valine, cysteine,
                                     protein_accession="P02144", protein_residue_number=10,
-                                    variant_class=VariantClass.BENIGN),
+                                    ),
                 PdbVariantSelection("101m", "A", 8, glutamine, cysteine,
                                     protein_accession="P02144",
-                                    variant_class=VariantClass.PATHOGENIC),
+                                    ),
                 PdbVariantSelection("101m", "A", 9, glutamine, cysteine,
                                     protein_accession="P02144", protein_residue_number=9,
-                                    variant_class=VariantClass.PATHOGENIC)]
+                                    )]
     augmentation = 5
 
     work_dir_path = mkdtemp()
@@ -64,8 +64,7 @@ def test_predict_without_target():
 
         dataset = DataSet(hdf5_path, grid_info=grid_info,
                           select_feature='all',
-                          select_target='target1',
-                          normalize_features=False)
+                          normalize_features=True)
 
         eq_(len(dataset), len(variants) * (augmentation + 1))
         ok_(dataset[0] is not None)

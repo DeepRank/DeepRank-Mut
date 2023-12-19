@@ -761,7 +761,10 @@ class DataSet():
                         mean, var)
 
             # handle the target
-            if self.select_target is not None:
+            if self.select_target is not None and \
+                    "targets" in data and \
+                    self.select_target in data["targets"]:
+
                 minv = data['targets'][self.select_target].min
                 maxv = data['targets'][self.select_target].max
                 self.param_norm['targets'][self.select_target].update(minv)
