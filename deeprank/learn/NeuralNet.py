@@ -223,16 +223,9 @@ class NeuralNet():
         elif self.cuda:
             self.net = self.net.cuda()
 
-        # set the optimizer
-        #self.optimizer = optim.SGD(self.net.parameters(),
-        #                           lr=0.005,
-        #                           momentum=0.9,
-        #                           weight_decay=0.001)
-        self.optimizer = optim.AdamW(self.net.parameters(),
-                                     lr=0.005,
-                                     weight_decay=0.001)
-        if self.pretrained_model:
-            self.load_optimizer_params()
+        # set the optimizer to None in the beginning.
+        # if the user is going to train a model, then he must set it.
+        self.optimizer = None
 
         # ------------------------------------------
         # print
@@ -298,6 +291,13 @@ class NeuralNet():
             save_model (str, optional): 'best' or 'all', save only the
                 best model or all models.
         """
+
+        if self.optimizer is None:
+            if self.pretrained_model is not None:
+                self.load_optimizer_params()
+            else:
+                raise RuntimeError("no optimizer set, cannot train")
+
         logger.info(f'\n: Batch Size: {train_batch_size}')
         if self.cuda:
             logger.info(f': NGPU      : {self.ngpu}')
@@ -407,6 +407,18 @@ class NeuralNet():
 
     def load_optimizer_params(self):
         """Get optimizer parameters from a saved model."""
+
+        # guess the optimizer
+        if 'momentum' in self.state['optimizer']['param_groups']:
+            self.optimizer = optim.SGD(self.net.parameters(),
+                                       lr=0.005,
+                                       momentum=0.9,
+                                       weight_decay=0.001)
+        else:
+            self.optimizer = optim.AdamW(self.net.parameters(),
+                                         lr=0.005,
+                                         weight_decay=0.001)
+
         self.optimizer.load_state_dict(self.state['optimizer'])
 
     def load_nn_params(self):

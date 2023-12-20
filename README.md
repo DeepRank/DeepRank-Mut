@@ -235,12 +235,6 @@ model = NeuralNet(data_set, cnn_reg, model_type='3d', task='reg',
                   metrics_exporters=[OutputExporter(out)],
                   cuda=False)
 
-# change the optimizer (optional)
-model.optimizer = optim.SGD(model.net.parameters(),
-                            lr=0.001,
-                            momentum=0.9,
-                            weight_decay=0.005)
-
 # do the prediction
 model.test()
 ```

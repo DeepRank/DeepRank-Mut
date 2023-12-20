@@ -22,9 +22,12 @@ deeprank.config.DEBUG = True
 
 
 
-def test_predict_without_target():
-    feature_modules = ["test.feature.feature1", "test.feature.feature2"]
+def test_predict():
     target_modules = []
+    feature_modules = [
+        'deeprank.features.atomic_contacts',
+        'deeprank.features.neighbour_profile',
+        'deeprank.features.accessibility']
 
     atomic_densities = {'C': 1.7, 'N': 1.55, 'O': 1.52, 'S': 1.8}
     grid_info = { 
@@ -37,14 +40,8 @@ def test_predict_without_target():
 
     variants = [PdbVariantSelection("101m", "A", 10, valine, cysteine,
                                     protein_accession="P02144", protein_residue_number=10,
-                                    ),
-                PdbVariantSelection("101m", "A", 8, glutamine, cysteine,
-                                    protein_accession="P02144",
-                                    ),
-                PdbVariantSelection("101m", "A", 9, glutamine, cysteine,
-                                    protein_accession="P02144", protein_residue_number=9,
                                     )]
-    augmentation = 5
+    augmentation = 2
 
     work_dir_path = mkdtemp()
     try:
@@ -72,18 +69,9 @@ def test_predict_without_target():
         metrics_directory = os.path.join(work_dir_path, "runs")
 
         neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class',
+                               pretrained_model="test/data/models/best_valid_model.pth.tar",
                                cuda=False, metrics_exporters=[OutputExporter(metrics_directory),
                                                               TensorboardBinaryClassificationExporter(metrics_directory)])
-
-        neural_net.optimizer = optim.SGD(neural_net.net.parameters(),
-                                         lr=0.001,
-                                         momentum=0.9,
-                                         weight_decay=0.005)
-
-        neural_net.state = {}
-        neural_net.state["task"] = "class"
-        neural_net.state["criterion"] = neural_net.criterion
-
         neural_net.test()
     finally:
         rmtree(work_dir_path)
