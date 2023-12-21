@@ -736,9 +736,10 @@ class NeuralNet():
 
             if targets is not None:
                 target_values += targets.tolist()
+            else:
+                target_values += [-1] * outputs.shape[0]
 
-        if len(target_values) > 0:
-            self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
+        self._metrics_output.process(pass_name, epoch_number, entry_names, output_values, target_values)
 
         if count_data_entries > 0:
             epoch_loss = sum_of_losses / count_data_entries

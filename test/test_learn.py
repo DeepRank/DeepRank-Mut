@@ -68,11 +68,14 @@ def test_predict():
 
         metrics_directory = os.path.join(work_dir_path, "runs")
 
+        output_exporter = OutputExporter(metrics_directory)
+
         neural_net = NeuralNet(dataset, cnn_class, model_type='3d',task='class',
                                pretrained_model="test/data/models/best_valid_model.pth.tar",
-                               cuda=False, metrics_exporters=[OutputExporter(metrics_directory),
-                                                              TensorboardBinaryClassificationExporter(metrics_directory)])
+                               cuda=False, metrics_exporters=[output_exporter])
         neural_net.test()
+
+        assert os.path.isfile(output_exporter.get_filename("test", 0))
     finally:
         rmtree(work_dir_path)
 
